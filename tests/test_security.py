@@ -185,8 +185,15 @@ class MailboxTests(unittest.TestCase):
         @contextlib.contextmanager
         def connect(readonly=True):yield client
         box.connect=connect
-        with self.assertRaises(ValueError):box.quarantine({'host':'host','user':'user','folder':'AI-review','uidvalidity':'old','uid':'10'})
+        with self.assertRaises(ValueError):box.quarantine({'host':'host','port':993,'user':'user','folder':'AI-review','uidvalidity':'old','uid':'10'})
         self.assertFalse(any(cmd=='MOVE' for cmd,args in client.calls))
+
+    def test_changed_port_blocks_move_before_connecting(self):
+        box = Mailbox(Config(imap_host='host', imap_user='user', allow_quarantine=True))
+        with patch.object(box, 'connect') as connect:
+            with self.assertRaisesRegex(ValueError, 'Mailbox identity mismatch'):
+                box.quarantine({'host':'host','port':1993,'user':'user','folder':'AI-review','uidvalidity':'777','uid':'10'})
+            connect.assert_not_called()
 
 
 class ApprovalTests(unittest.TestCase):

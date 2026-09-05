@@ -132,7 +132,7 @@ class Mailbox:
     def quarantine(self, ref):
         if not self.c.allow_quarantine:
             raise PermissionError("Quarantine disabled by administrator")
-        if any(ref.get(k) != v for k, v in {"host": self.c.imap_host, "user": self.c.imap_user, "folder": self.c.imap_folder}.items()) or not str(ref.get("uid", "")).isdigit():
+        if any(ref.get(k) != v for k, v in {"host": self.c.imap_host, "port": self.c.imap_port, "user": self.c.imap_user, "folder": self.c.imap_folder}.items()) or not str(ref.get("uid", "")).isdigit():
             raise ValueError("Mailbox identity mismatch")
         with self.connect(readonly=False) as client:
             if self.identity(client) != ref["uidvalidity"]:

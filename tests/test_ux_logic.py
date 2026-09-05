@@ -14,7 +14,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 from sentinel.config import Config
-from sentinel.server import ConnectionDraft, serve
+from sentinel.server import ConnectionDraft, serve, Application
 from sentinel.queue import QueueStore
 from sentinel.agent import Agent
 from test_security import registry, ModelDouble, call, finish
@@ -72,28 +72,42 @@ class HTTPUXTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.config=Config(data_dir=self.tmp.name,model='test-model',privacy_mode='evidence_only')
-        self.output=io.StringIO();self.server=None;event=threading.Event()
+        self.server=None;self.application=None;self.ready=threading.Event();self.startup_errors=[]
         def factory(*args):
-            self.server=ThreadingHTTPServer(*args);event.set();return self.server
-        self.patches=[patch('sentinel.server.ThreadingHTTPServer',side_effect=factory),patch('sentinel.server.QueueService.start'),patch.dict(os.environ,{},clear=False)]
+            self.server=ThreadingHTTPServer(*args)
+            original=self.server.serve_forever
+            def loop():
+                self.ready.set()
+                return original(poll_interval=.05)
+            self.server.serve_forever=loop
+            return self.server
+        def application(config):
+            self.application=Application(config)
+            return self.application
+        self.patches=[patch('sentinel.server.ThreadingHTTPServer',side_effect=factory),patch('sentinel.server.Application',side_effect=application),patch('sentinel.server.QueueService.start'),patch.dict(os.environ,{},clear=False)]
         for p in self.patches:p.start();self.addCleanup(p.stop)
         def run():
-            with contextlib.redirect_stdout(self.output):serve(self.config,port=0,config_path=Path(self.tmp.name)/'sentinel.toml')
-        self.thread=threading.Thread(target=run,daemon=True);self.thread.start()
-        self.assertTrue(event.wait(2))
-        for _ in range(100):
-            match=re.search(r'http://127.0.0.1:\d+/#token=(\S+)',self.output.getvalue())
-            if match:break
-            time.sleep(.01)
-        self.token=match[1];self.url=f'http://127.0.0.1:{self.server.server_port}/api/'
+            try:
+                serve(self.config,port=0,config_path=Path(self.tmp.name)/'sentinel.toml')
+            except BaseException as exc:
+                self.startup_errors.append(exc)
+                self.ready.set()
+        self.thread=threading.Thread(target=run,daemon=True)
         self.addCleanup(self.stop)
+        self.thread.start()
+        self.assertTrue(self.ready.wait(30),'HTTP server startup timed out')
+        self.assertFalse(self.startup_errors,self.startup_errors)
+        self.token=self.application.token;self.url=f'http://127.0.0.1:{self.server.server_port}/api/'
 
     def stop(self):
-        self.server.shutdown();self.thread.join(3)
+        if self.server and self.ready.is_set() and not self.startup_errors:
+            self.server.shutdown()
+        self.thread.join(30)
+        self.assertFalse(self.thread.is_alive(),'HTTP test server did not stop')
 
     def api(self,path,data=None):
         request=urllib.request.Request(self.url+path,None if data is None else json.dumps(data).encode(),{'X-Sentinel-Token':self.token,'Content-Type':'application/json'})
-        with urllib.request.urlopen(request,timeout=3) as response:return json.load(response)
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request,timeout=10) as response:return json.load(response)
 
     def test_draft_model_list_does_not_save_configuration(self):
         with patch('sentinel.server.Provider') as provider:
