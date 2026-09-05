@@ -80,6 +80,7 @@ safe(async()=>{await loadSettings();await refresh();await queueLoad();});
 setInterval(()=>{if(!document.hidden&&currentView==='monitor')queueLoad().catch(()=>{$('queueState').textContent=t('disconnected')});},4000);
 
 const userErrors={
+ 'Unauthorized request':['Session expired. Open the current private URL from the terminal.','Relace vypršela. Otevřete aktuální soukromou adresu z terminálu.'],
  'Finish or cancel waiting queue items before changing mailbox scope':['Finish or cancel waiting queue items in Mailbox monitoring before changing the mailbox or date range.','Před změnou schránky nebo časového rozsahu dokončete nebo zrušte čekající položky ve Sledování schránky.'],
  'Configure a real AI model first':['Configure an AI connection in Settings.','Nastavte připojení AI v Nastavení.'],
  'Pause the queue and wait for active investigations before editing settings':['Pause monitoring and wait for active investigations before saving settings.','Před uložením nastavení pozastavte sledování a počkejte na běžící analýzy.'],

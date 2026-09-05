@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -11,7 +12,7 @@ class MCPTests(unittest.TestCase):
         requests=[{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'test','version':'1'}}},
                   {'jsonrpc':'2.0','method':'notifications/initialized'},
                   {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'inspect_prompt_injection','arguments':{}}}]
-        process=subprocess.run([sys.executable,'-m','sentinel','mcp','--demo','4'],input='\n'.join(json.dumps(r) for r in requests)+'\n',capture_output=True,text=True,timeout=5)
+        process=subprocess.run([sys.executable,'-m','sentinel','mcp','--demo','4'],input='\n'.join(json.dumps(r) for r in requests)+'\n',capture_output=True,text=True,encoding='utf-8',timeout=5,env={**os.environ,'PYTHONIOENCODING':'ascii'})
         self.assertEqual(process.returncode,0,process.stderr)
         outputs=[json.loads(line) for line in process.stdout.splitlines()]
         self.assertEqual(len(outputs),2)

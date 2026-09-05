@@ -1,4 +1,5 @@
 """Execute real SQLite queries with arbitrary business schema and denied writes."""
+from contextlib import closing
 import copy
 import json
 import sqlite3
@@ -16,7 +17,7 @@ class DataSourceTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.path=Path(self.tmp.name)/'business.sqlite3'
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db:
             db.executescript("CREATE TABLE cases(case_code TEXT, authorized INTEGER); INSERT INTO cases VALUES('Case-AbC',1),('other',0); CREATE TABLE payroll(secret TEXT); INSERT INTO payroll VALUES('private');")
         self.query={'name':'verify_case','description':'Look up a case code and check authorization','sql':'SELECT case_code, authorized FROM cases WHERE case_code = :case_code','parameters':{'case_code':{'type':'string'}},'required':['case_code'],'mode':'conditional','when':'The message requests release of case information.'}
         self.source={'id':'case_records','driver':'sqlite','path':str(self.path),'tables':['cases'],'queries':[self.query]}
@@ -31,7 +32,7 @@ class DataSourceTests(unittest.TestCase):
     def test_write_denied_even_when_adapter_is_called_directly(self):
         for sql in ["DELETE FROM cases RETURNING case_code", "ATTACH DATABASE ':memory:' AS extra", "PRAGMA writable_schema=ON", "SELECT load_extension('/tmp/evil')"]:
             with self.assertRaises(SourceError):execute_query(self.source,{**self.query,'sql':sql},{'case_code':'Case-AbC'})
-        with sqlite3.connect(self.path) as db:self.assertEqual(db.execute('SELECT count(*) FROM cases').fetchone()[0],2)
+        with closing(sqlite3.connect(self.path)) as db:self.assertEqual(db.execute('SELECT count(*) FROM cases').fetchone()[0],2)
 
     def test_undeclared_table_is_denied(self):
         with self.assertRaises(SourceError):execute_query(self.source,{**self.query,'sql':'SELECT secret FROM payroll'},{})

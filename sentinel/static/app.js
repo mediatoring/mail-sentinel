@@ -7,6 +7,12 @@ const $=id=>document.getElementById(id), t=k=>(lang==='cs'?cs[k]:en[k])||en[k]||
 const params=new URLSearchParams(location.hash.slice(1));
 if(params.get('token')) {sessionStorage.setItem('sentinel-token',params.get('token'));history.replaceState(null,'',location.pathname);}
 const token=sessionStorage.getItem('sentinel-token')||'';
+// Reopening the terminal URL after a restart may only change the fragment.
+// Reload to consume the new token and discard the previous session's job state.
+window.addEventListener('hashchange',()=>{
+ const next=new URLSearchParams(location.hash.slice(1)).get('token');
+ if(next&&next!==token){sessionStorage.removeItem('sentinel-job');location.reload();}
+});
 function notice(text){$('notice').textContent=text;$('notice').hidden=!text;}
 function translate(){$('supportLink').href=lang==='cs'?'https://mediatoring.cz/kyberbezpecnost/':'https://mediatoring.cz/en/cybersecurity/';document.documentElement.lang=lang;$('lang').value=lang;document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));if(state){$('privacy').textContent=t(state.privacy_mode);renderMessages();}if(lastJob)renderJob(lastJob);}
 async function api(path,data){const r=await fetch('/api/'+path,{method:data?'POST':'GET',headers:{'X-Sentinel-Token':token,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const j=await r.json();if(!r.ok){const e=Error(j.error||'Request failed');e.status=r.status;throw e;}return j;}
@@ -53,4 +59,3 @@ function updateQuarantineField(){fieldVisible('quarantine_folder',$('settings').
 $('settings').elements.provider.onchange=updateProviderFields;
 $('settings').elements.allow_quarantine.onchange=updateQuarantineField;
 updateProviderFields();updateQuarantineField();
-

@@ -158,6 +158,12 @@ def _main():
 
 
 def main():
+    # Machine-readable JSON and Czech output must not depend on the Windows
+    # redirected-console code page. MCP input already reads UTF-8 bytes.
+    import sys
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     import signal
     import threading
     from .providers import ProviderError

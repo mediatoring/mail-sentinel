@@ -167,3 +167,5 @@ See [database configuration](docs/DATA-SOURCES.md), [plugin contract](docs/EXTEN
 Run `python -m sentinel check` to validate configuration and load the evidence catalog and enabled skills without contacting AI or IMAP. Its JSON output excludes credentials; exit code 2 means configuration needs attention. `doctor` performs a real model tool-call test.
 
 Use `python -m sentinel backup backup.sqlite3` for a consistent report/queue snapshot. Configuration, evidence sources and credentials require separate backups. See [operations](docs/OPERATIONS.md) for restoration. Only one server, watcher or scan process can own a data directory.
+
+For deployment acceptance against a real model, run `python -m evaluation.semantic_eval` and `python -m evaluation.demo_eval` from the source checkout. Both use bundled synthetic data and save JSON results; external models additionally require `--allow-external`. Semantic evaluation supports repeatable `--case` selectors and checkpoints progress. See [validation](docs/VALIDATION.md) for measured results and remaining release gates.

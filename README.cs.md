@@ -50,3 +50,5 @@ Podrobný postup a příklady obsahuje [konfigurace datových zdrojů](docs/DATA
 `python -m sentinel check` ověří konfiguraci, registraci nástrojů a zapnuté skills bez kontaktování AI nebo schránky. Výstup JSON neobsahuje přihlašovací údaje; návratový kód 2 upozorňuje na nutnou úpravu nastavení. Příkaz `doctor` ověří skutečné volání nástroje modelem.
 
 `python -m sentinel backup backup.sqlite3` vytvoří konzistentní zálohu výsledků a fronty. Nastavení, ověřovací data a přihlašovací údaje zálohujte zvlášť. [Provozní návod](docs/OPERATIONS.md) popisuje obnovu. Datovou složku může používat jeden server, sledování nebo jednorázový scan. Při spuštění `watch` nastavte `queue_since`, nebo přidejte `--entire-folder` pro celou složku.
+
+Pro přijímací testy se skutečným modelem spusťte ze zdrojové složky `python -m evaluation.semantic_eval` a `python -m evaluation.demo_eval`. Používají syntetická data a ukládají výsledky do JSON; externí model navíc vyžaduje `--allow-external`. Vícejazyčný test umožňuje opakovat volbu `--case` a průběžně ukládá výsledky. Naměřené výsledky a zbývající podmínky vydání jsou v [záznamu ověření](docs/VALIDATION.md).

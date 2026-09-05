@@ -1,4 +1,5 @@
 """Release-facing process, configuration and recovery contracts."""
+from contextlib import closing
 import dataclasses
 import json
 import os
@@ -51,7 +52,7 @@ class OperationsTests(unittest.TestCase):
             ident = store.save('message', {'status':'incomplete'})
             dest = Path(directory) / 'backup.sqlite3'
             backup_database(directory, dest)
-            with sqlite3.connect(dest) as db:
+            with closing(sqlite3.connect(dest)) as db:
                 self.assertEqual(db.execute('SELECT id FROM reports').fetchone()[0], ident)
             before = dest.read_bytes()
             with self.assertRaises(FileExistsError):

@@ -19,5 +19,5 @@ const tick=()=>new Promise(r=>setTimeout(r,35));
  active={job_id:'job-1',message_id:'sample-1'};failPoll=true;$('refresh').click();await tick();assert($('analyze').disabled);assert($('file').disabled);assert($('notice').textContent.includes('Obnovuji'));
  failPoll=false;pollStatus=403;await w.eval('poll()');assert($('notice').textContent.includes('Relace vypršela'));assert($('analyze').disabled);assert.equal(w.sessionStorage.getItem('sentinel-job'),null);
  pollStatus=404;await w.eval('poll()');assert($('notice').textContent.includes('Historii'));assert(!$('analyze').disabled);
- assert.equal(errors.length,0,errors.join('\n'));console.log('PASS: first use, draft credentials, verified save, plain-text body, missing references, result navigation, CZ and reconnect state.');w.close();
+ assert.equal(errors.length,0,errors.join('\n'));w.sessionStorage.setItem('sentinel-job','old-session-job');w.location.hash='token=new-server-session';await tick();assert.equal(w.sessionStorage.getItem('sentinel-job'),null);assert(errors.every(e=>e.includes('navigation')),errors.join('\n'));console.log('PASS: session restart, first use, draft credentials, verified save, plain-text body, missing references, result navigation, CZ and reconnect state.');w.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1;});
