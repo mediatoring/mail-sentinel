@@ -69,6 +69,10 @@ class Store:
             return json.loads(row[0]) if row else None
 
 
+    def attempts(self, message_id):
+        with self.db() as db:
+            return db.execute("SELECT count(*) FROM reports WHERE message_id=? AND created>?", (message_id, time.time()-86400)).fetchone()[0]
+
     def propose(self, report_id, message):
         if message.get('source') != 'imap' or not isinstance(message.get('imap_ref'),dict):
             raise ValueError('Quarantine requires an IMAP message')
