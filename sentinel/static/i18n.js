@@ -355,3 +355,6 @@ const cs = {
 
 Object.assign(en,{sessionExpired:"Session expired. Open the current private URL from the terminal.",jobMissing:"This investigation is no longer in memory. Check saved reports in History before starting it again."});
 Object.assign(cs,{sessionExpired:"Relace vypršela. Otevřete aktuální soukromou adresu z terminálu.",jobMissing:"Toto šetření již není v paměti. Před opakováním zkontrolujte uložené výsledky v Historii."});
+
+Object.assign(en,{context_limit:"The model's context window is full. Increase the loaded model's context in LM Studio, or reduce concurrent analyses and input size. Then retry the investigation."});
+Object.assign(cs,{context_limit:"Model vyčerpal kontext. V LM Studiu zvětšete kontext načteného modelu, nebo snižte počet souběžných analýz a rozsah vstupu. Potom analýzu opakujte."});

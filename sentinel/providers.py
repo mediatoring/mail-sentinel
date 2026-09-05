@@ -6,7 +6,9 @@ from urllib.parse import quote
 
 
 class ProviderError(Exception):
-    pass
+    def __init__(self, message, code="provider_error"):
+        super().__init__(message)
+        self.code = code if code in {"provider_error", "context_limit"} else "provider_error"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -30,6 +32,18 @@ class Provider:
                     raise ProviderError("Provider response exceeds limit")
                 return json.loads(body)
         except urllib.error.HTTPError as e:
+            # Inspect bounded error data only to classify the protocol failure.
+            # Never expose raw provider error bodies (which may repeat inputs).
+            try:
+                detail = e.read(16384).decode("utf-8", errors="replace").lower()
+            except OSError:
+                detail = ""
+            finally:
+                e.close()
+            if e.code in {400, 413, 422} and any(marker in detail for marker in (
+                "context size has been exceeded", "context_length_exceeded", "maximum context length"
+            )):
+                raise ProviderError("Model context window exceeded. Increase the loaded model context or reduce concurrent analyses and input size.", "context_limit") from None
             raise ProviderError(f"Provider HTTP {e.code}; check model, key and quota") from None
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
             raise ProviderError("Provider unavailable or invalid response; no verdict produced") from None

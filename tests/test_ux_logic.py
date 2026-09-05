@@ -10,11 +10,10 @@ import threading
 import time
 import unittest
 import urllib.request
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 from sentinel.config import Config
-from sentinel.server import ConnectionDraft, serve, Application
+from sentinel.server import ConnectionDraft, serve, Application, LocalHTTPServer
 from sentinel.queue import QueueStore
 from sentinel.agent import Agent
 from test_security import registry, ModelDouble, call, finish
@@ -74,7 +73,7 @@ class HTTPUXTests(unittest.TestCase):
         self.config=Config(data_dir=self.tmp.name,model='test-model',privacy_mode='evidence_only')
         self.server=None;self.application=None;self.ready=threading.Event();self.startup_errors=[]
         def factory(*args):
-            self.server=ThreadingHTTPServer(*args)
+            self.server=LocalHTTPServer(*args)
             original=self.server.serve_forever
             def loop():
                 self.ready.set()
@@ -84,7 +83,7 @@ class HTTPUXTests(unittest.TestCase):
         def application(config):
             self.application=Application(config)
             return self.application
-        self.patches=[patch('sentinel.server.ThreadingHTTPServer',side_effect=factory),patch('sentinel.server.Application',side_effect=application),patch('sentinel.server.QueueService.start'),patch.dict(os.environ,{},clear=False)]
+        self.patches=[patch('sentinel.server.LocalHTTPServer',side_effect=factory),patch('sentinel.server.Application',side_effect=application),patch('sentinel.server.QueueService.start'),patch.dict(os.environ,{},clear=False)]
         for p in self.patches:p.start();self.addCleanup(p.stop)
         def run():
             try:

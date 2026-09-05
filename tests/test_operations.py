@@ -14,11 +14,21 @@ from unittest.mock import patch
 from sentinel.config import Config
 from sentinel.diagnostics import readiness, backup_database
 from sentinel.lifecycle import instance_lock
-from sentinel.server import serve
+from sentinel.server import serve, LocalHTTPServer
 from sentinel.store import Store
 
 
 class OperationsTests(unittest.TestCase):
+    def test_loopback_bind_does_not_use_reverse_dns(self):
+        from http.server import BaseHTTPRequestHandler
+        with patch('socket.getfqdn', side_effect=AssertionError('Unexpected DNS lookup')):
+            server=LocalHTTPServer(('127.0.0.1',0),BaseHTTPRequestHandler)
+            try:
+                self.assertGreater(server.server_port,0)
+                self.assertEqual(server.server_name,'localhost')
+            finally:
+                server.server_close()
+
     def test_process_lock_refuses_second_process_and_recovers(self):
         with tempfile.TemporaryDirectory() as directory:
             code = 'from sentinel.lifecycle import instance_lock\nimport sys\nwith instance_lock(sys.argv[1]): print("acquired")'

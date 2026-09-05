@@ -23,6 +23,15 @@ def connection_signature(config):
     return hashlib.sha256(json.dumps([config.provider,config.endpoint,config.model,config.api_key,config.allow_external]).encode()).hexdigest()
 
 
+class LocalHTTPServer(ThreadingHTTPServer):
+    """Loopback service startup must not depend on reverse DNS availability."""
+    def server_bind(self):
+        from socketserver import TCPServer
+        TCPServer.server_bind(self)
+        self.server_name = "localhost"
+        self.server_port = self.server_address[1]
+
+
 class ConnectionDraft:
     def __init__(self, config, data):
         permitted={"provider","model","base_url","api_key","allow_external"}
@@ -381,7 +390,7 @@ def _serve(config, port, config_path):
                 msg = str(e) if isinstance(e, (ValueError, ProviderError)) else "Operation failed; check local configuration and credentials"
                 return self.send({"error": msg}, 400)
 
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server = LocalHTTPServer(("127.0.0.1", port), Handler)
     try:
         app = Application(config)
     except BaseException:
