@@ -1,0 +1,46 @@
+# Copy to sentinel.toml, or run python -m sentinel setup.
+provider = "local"
+model = "" # Required: exact identifier of your real, tool-capable model
+base_url = "http://127.0.0.1:1234/v1" # local or compatible provider only
+api_key_env = "SENTINEL_API_KEY"
+language = "en" # en / cs; UI language switch is independent of report language
+privacy_mode = "redacted_text" # evidence_only / redacted_text
+allow_external = false
+max_steps = 12
+timeout = 45
+max_seconds = 180
+max_output_tokens = 1400
+imap_host = ""
+imap_port = 993
+imap_user = ""
+imap_password_env = "SENTINEL_IMAP_PASSWORD"
+imap_folder = "AI-review"
+quarantine_folder = "AI-quarantine"
+allow_quarantine = false
+max_message_bytes = 1000000
+max_messages = 20
+poll_seconds = 60
+retention_days = 30
+data_dir = ".sentinel"
+organization_file = "" # Your approved organization.json, never the demo registry
+plugins = []
+redaction_terms = [] # Names, internal project identifiers and other local terms
+
+# Required evidence and runtime extensions
+check_modes = { inspect_message = "required", inspect_prompt_injection = "required", verify_sender = "required", inspect_links = "required", inspect_attachments = "required", verify_payment = "conditional", search_policy = "conditional" }
+enabled_skills = []
+# enabled_skills = ["payment-review"]
+skills_dir = "skills"
+enable_specialists = false
+
+# Persistent queue. Blank date includes the entire configured folder.
+queue_since = ""
+queue_workers = 1
+queue_per_hour = 60
+queue_attempts = 3
+daily_model_calls = 1000
+max_input_bytes = 500000
+
+# Alternative: "oauth2", with an administrator-managed access token.
+imap_auth = "password"
+imap_token_env = "SENTINEL_IMAP_ACCESS_TOKEN"

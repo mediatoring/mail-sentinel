@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mail-sentinel-agent"
+version = "1.0.0rc1"
+description = "Local-first, tool-using email investigation agent"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Michal Kubíček"}]
+dependencies = []
+
+[project.optional-dependencies]
+postgresql = ["psycopg[binary]>=3.2,<4"]
+
+[project.scripts]
+mail-sentinel = "sentinel.__main__:main"
+
+[tool.setuptools.package-data]
+sentinel = ["static/*", "demo_data.json"]
+
+[tool.setuptools.packages.find]
+include = ["sentinel*"]

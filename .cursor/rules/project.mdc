@@ -1,0 +1,5 @@
+---
+description: Mail Sentinel development and extension guidance
+alwaysApply: true
+---
+Read and follow the root AGENTS.md and docs/DEVELOPMENT.md before changing this project. Keep project instructions in AGENTS.md so editor-specific entry points do not drift.

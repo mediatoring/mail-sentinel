@@ -1,0 +1,3 @@
+version = 1
+id = "payment-review"
+tools = ["inspect_message", "verify_payment", "search_policy"]

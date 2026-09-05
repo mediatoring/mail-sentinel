@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "case_records",
+      "driver": "postgresql",
+      "dsn_env": "SENTINEL_CASE_DSN",
+      "schema_notes": "approved_case_evidence(case_code TEXT, disclosure_approved BOOLEAN) is an administrator-approved evidence view.",
+      "timeout_seconds": 5,
+      "max_rows": 10,
+      "queries": [
+        {
+          "name": "verify_case_approval",
+          "title": {"en": "Case disclosure approval", "cs": "Schválení zpřístupnění případu"},
+          "description": "Look up the case code in the approved evidence view and verify whether disclosure is approved.",
+          "sql": "SELECT case_code, disclosure_approved FROM approved_case_evidence WHERE case_code = %(case_code)s",
+          "parameters": {"case_code": {"type": "string", "description": "Case code from the message"}},
+          "required": ["case_code"],
+          "mode": "conditional",
+          "when": "The message requests access to or disclosure of information about a case, in any language.",
+          "require_rows": true
+        }
+      ]
+    }
+  ]
+}
