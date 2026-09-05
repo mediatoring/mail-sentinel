@@ -199,7 +199,7 @@ class MailboxTests(unittest.TestCase):
 class ApprovalTests(unittest.TestCase):
     def test_single_use_bound_to_report(self):
         with tempfile.TemporaryDirectory() as d:
-            s=Store(d);token=s.propose('r1',{'id':'m1','imap_ref':{'uid':'10'}})
+            s=Store(d);token=s.propose('r1',{'id':'m1','source':'imap','imap_ref':{'uid':'10'}})
             with self.assertRaises(ValueError):s.consume(token,'r2')
             self.assertEqual(s.consume(token,'r1')['message_id'],'m1')
             with self.assertRaises(ValueError):s.consume(token,'r1')

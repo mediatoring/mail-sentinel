@@ -1,6 +1,6 @@
 """LLM chooses each step. The host validates every call and completion."""
 import time
-from .providers import Provider, ProviderError
+from .providers import Provider, ProviderError, ERROR_MESSAGES
 from .tools import schema, validate_arguments
 
 FINISH = {"name": "finish_investigation", "description": "Complete the investigation with references to observed evidence. Quarantine is only a proposal requiring separate human approval.",
@@ -53,12 +53,11 @@ class Agent:
         events = []
         started = time.monotonic()
         def emit(event):
-            context_error = event.get("error_code") == "context_limit"
-            event = self.registry.privacy.protect(event)
-            if context_error:
+            provider_code = event.get("error_code")
+            if provider_code in ERROR_MESSAGES:
                 # Fixed host copy contains no email or provider-controlled text.
-                event["error_code"] = "context_limit"
-                event["message"] = ("Model vyčerpal kontext. V LM Studiu zvětšete kontext načteného modelu nebo snižte souběh a rozsah vstupu." if self.c.language == "cs" else "Model context window exceeded. Increase the loaded model context or reduce concurrent analyses and input size.")
+                event["error_code"] = provider_code
+                event["message"] = ERROR_MESSAGES[provider_code]
             events.append(event)
             if on_event:
                 on_event(event)
@@ -98,7 +97,7 @@ class Agent:
                     arguments["skills"] = [{k:v for k,v in sk.items() if k!="instructions"} for sk in skills]
                     if self.specialist:
                         arguments["proposed_action"] = "none"
-                    report = self.registry.privacy.protect(arguments)
+                    report = arguments
                     emit({"type": "finished", "report": report})
                     return {"status": "completed", "report": report, "events": events, "steps": step+1}
                 try:
@@ -106,9 +105,11 @@ class Agent:
                     status = "ok"
                 except (PermissionError, ValueError, TypeError, KeyError) as e:
                     output, status = {"error": type(e).__name__, "message": "Tool unavailable, invalid arguments or response rejected."}, "denied"
-                evidence = {"id": f"E{step+1:02}", "tool": name, "arguments": arguments, "status": status, "observation": output}
-                evidence = self.registry.privacy.protect(evidence)
+                evidence = self.registry.evidence(f"E{step+1:02}", name, arguments, status, output)
                 context["evidence"].append(evidence)
+                if name == 'inspect_message' and status == 'ok':
+                    # The exact inspected content remains in its evidence record.
+                    context['message'] = {'source':self.registry.message['source'], 'inspection_evidence_id':evidence['id']}
                 emit({"type": "tool", **evidence})
             raise TimeoutError("Maximum model steps reached")
         except Exception as e:
@@ -117,7 +118,7 @@ class Agent:
                 emit({"type":"cancelled"})
                 return {"status":"cancelled", "report":None,"events":events,"steps":self.budget.calls}
             # No fake fallback verdict. Suppress arbitrary provider/plugin exception text.
-            emit({"type": "error", "error": type(e).__name__, "error_code": "context_limit" if isinstance(e, ProviderError) and getattr(e,"code",None)=="context_limit" else "analysis_failed", "message": "Analysis incomplete. Check model connection, tool support and configured limits."})
+            emit({"type": "error", "error": type(e).__name__, "error_code": e.code if isinstance(e, ProviderError) else "analysis_failed", "message": "Analysis incomplete. Check model connection, tool support and configured limits."})
             return {"status": "incomplete", "report": None, "events": events, "steps": len(context["evidence"])}
 
 

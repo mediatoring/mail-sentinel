@@ -5,10 +5,19 @@ import urllib.request
 from urllib.parse import quote
 
 
+ERROR_MESSAGES = {
+    "context_limit": "Model context window exceeded. Increase the loaded model context or reduce concurrent analyses and input size.",
+    "provider_unavailable": "The model server did not respond within the configured timeout or could not be reached. Check its load and connection.",
+    "output_limit": "The model reached its output token limit before finishing a tool call. Increase the output token limit or reduce reasoning effort in the model server.",
+    "tool_call_invalid": "The model did not return exactly one valid native tool call. Check model tool support and retry the investigation.",
+    "provider_error": "The model provider rejected the request. Check the model server and its configuration.",
+}
+
+
 class ProviderError(Exception):
     def __init__(self, message, code="provider_error"):
         super().__init__(message)
-        self.code = code if code in {"provider_error", "context_limit"} else "provider_error"
+        self.code = code if code in ERROR_MESSAGES else "provider_error"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -46,9 +55,11 @@ class Provider:
                 raise ProviderError("Model context window exceeded. Increase the loaded model context or reduce concurrent analyses and input size.", "context_limit") from None
             raise ProviderError(f"Provider HTTP {e.code}; check model, key and quota") from None
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
-            raise ProviderError("Provider unavailable or invalid response; no verdict produced") from None
+            raise ProviderError("Provider unavailable or invalid response; no verdict produced", "provider_unavailable") from None
 
     def decide(self, system, context, definitions):
+        from .budget import check_context
+        check_context(self.c,system,context,definitions)
         if not self.c.model:
             raise ProviderError("Configure a real AI model before analysis")
         if self.c.external and (not self.c.allow_external or not self.c.api_key):
@@ -80,16 +91,21 @@ class Provider:
                        "tools": [{"type": "function", "function": t} for t in definitions], "tool_choice": "required",
                        "parallel_tool_calls": False}
             payload["max_completion_tokens" if self.c.provider == "openai" else "max_tokens"] = self.c.max_output_tokens
+            if self.c.provider == "local":
+                # Local servers otherwise inherit arbitrary UI sampling defaults.
+                payload["temperature"] = 0
             headers = {"Authorization": "Bearer " + self.c.api_key} if self.c.api_key and self.c.external else {}
             result = self.request(base + "/chat/completions", payload, headers)
             choices = result.get("choices", [])
+            if choices and choices[0].get("finish_reason") == "length":
+                raise ProviderError(ERROR_MESSAGES["output_limit"], "output_limit")
             raw = choices[0].get("message", {}).get("tool_calls", []) if choices else []
             try:
                 calls = [{"name": t["function"]["name"], "arguments": json.loads(t["function"]["arguments"])} for t in raw]
             except (KeyError, TypeError, json.JSONDecodeError):
-                raise ProviderError("Invalid native tool call") from None
+                raise ProviderError("Invalid native tool call", "tool_call_invalid") from None
         if len(calls) != 1:
-            raise ProviderError("Model must return exactly one native tool call; choose a tool-capable model")
+            raise ProviderError("Model must return exactly one native tool call; choose a tool-capable model", "tool_call_invalid")
         return calls[0]
 
 

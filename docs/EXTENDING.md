@@ -6,7 +6,7 @@ Example: add `plugins = ["examples.vendor_tool"]` to `sentinel.toml` when runnin
 
 Keep extension functions read-only. Never expose arbitrary commands, SQL, URLs or file paths as model arguments. Fetch credentials from administrator-owned configuration, not tool input. Network tools should validate exact permitted destinations, size/timeout limits and every redirect. Do not submit full URLs with tokens or upload attachments to public scanners by default.
 
-The simple schema validator supports top-level objects with strings, enums, integers, booleans and bounded lists of strings. Complex schemas require an extended validator before use. All tool metadata is administrator-trusted; do not put secrets into descriptions or schemas. Preview eligibility is declared in tool metadata; administrator review is required for installed plugin behavior.
+The schema validator supports declared objects, strings, enums, integers, finite numbers, booleans and typed arrays. Nested objects must declare their properties; unknown keys are rejected. Limits are 8 nesting levels, 100 object properties or array items, 4,000 characters per string and 32,000 UTF-8 bytes for the complete arguments. `minimum`, `maximum`, `maxLength` and `maxItems` can tighten these limits. Unsupported schema types fail closed. All tool metadata is administrator-trusted; do not put secrets into descriptions or schemas. Preview eligibility is declared in tool metadata; administrator review is required for installed plugin behavior.
 
 Python modules are not sandboxed. A malicious plugin can bypass the privacy layer, access environment variables or perform writes. Do not confuse a tool registry with OS isolation.
 
@@ -52,7 +52,7 @@ registry.add(Tool(
 ))
 ```
 
-`run` returns a JSON object. `available` determines whether the returned evidence can satisfy the check, and `blockers` returns explanatory strings that prevent LOW_RISK. The host attaches `_check` metadata after the plugin executes, then applies the privacy boundary. A plugin may implement a business check, database lookup or another evidence source; it must not interpret email instructions as authorization.
+`run` returns a JSON object. `available` determines whether the returned evidence can satisfy the check, and `blockers` returns explanatory strings that prevent LOW_RISK. The host computes these values from the original plugin output, redacts content and blocker descriptions, then attaches the `_check` envelope. Plugin output cannot replace that envelope. Tool IDs, evidence IDs, check state and verdict enums stay outside text redaction. The serialized observation is limited to 20,000 UTF-8 bytes. A plugin may implement a business check, database lookup or another evidence source; it must not interpret email instructions as authorization.
 
 Set `preview=False` for queries needing model-selected parameters or calls that should execute only during an authorized investigation. The outgoing preview lists these tools and their schemas; exact results are obtained at runtime under the saved privacy policy. `reference_keys` can identify required keys in the optional local JSON adapter for preflight guidance. `check=False` is reserved for orchestration utilities that do not themselves satisfy an evidence check.
 

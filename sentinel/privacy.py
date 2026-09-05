@@ -31,7 +31,10 @@ class Privacy:
         for kind, pattern in PATTERNS:
             text = pattern.sub(lambda m: self.token(kind, m[0]), text)
         for term in self.terms:
-            text = re.sub(re.escape(term), lambda m: self.token("ENTITY", m[0]), text, flags=re.I)
+            # Tokens are opaque references, including across repeated passes.
+            pieces = re.split(r'(\[[A-Z]+_\d+\])', text)
+            text = ''.join(piece if i % 2 else re.sub(re.escape(term), lambda m: self.token("ENTITY", m[0]), piece, flags=re.I)
+                           for i, piece in enumerate(pieces))
         return text
 
     def protect(self, obj):
@@ -45,8 +48,9 @@ class Privacy:
 
     def message(self, msg, mode):
         if mode == "redacted_text":
-            return self.protect({k: v for k, v in msg.items() if k not in {"imap_ref", "id"}})
+            return {k: self.protect(v) for k, v in msg.items() if k not in {"imap_ref", "id"}}
         return {"source": msg["source"], "attachment_count": len(msg["attachments"]),
                 "url_count": len(msg["urls"]), "body_truncated": msg.get("body_truncated", False),
+                "body_unavailable": msg.get("body_unavailable", False),
                 "content_shared": False,
                 "hint": "Use the local verification tools. Email text is withheld in evidence-only mode."}

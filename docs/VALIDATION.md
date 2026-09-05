@@ -1,30 +1,26 @@
 # Validation record — 1.0.0rc1
 
-Verified on Linux with Python 3.12:
+## Current local verification — 2026-09-05
 
-- 105 automated tests, including optional AgentDojo adapter tests when that dependency is installed.
-- Actual SQLite integration with a custom business schema, rejected writes, denied tables, bound parameters, bounded results, missing-database behavior and local pseudonym resolution.
-- Semantic applicability routing with German, Slovak, Polish, French, Japanese and Arabic text; these tests use model decisions supplied by doubles and do not measure multilingual model accuracy.
-- Required checks cannot be waived; uncertain, absent, withheld-text and truncated-text assessments remain conservative.
-- Dynamic plugin metadata, custom completion blockers, administrator instructions, generic policy retrieval and SQL source configuration through the authenticated API.
-- PostgreSQL protocol configuration tested through a driver double.
-- Frontend DOM regression tests, including expired sessions and missing jobs; JavaScript syntax, Python compilation and shell launcher syntax.
-- Cross-process data ownership, bind-before-start behavior, strict configuration types, backup integrity/no-overwrite, secret-free readiness output and recovery from temporary queue storage faults.
-- Built a wheel with setuptools, installed it without dependencies or network access in a fresh virtual environment, then ran outside the source checkout: demo export, readiness, authenticated HTTP, every UI asset, SIGTERM, restart and database backup.
-- CI now declares Windows/macOS/Linux source and installed-wheel checks plus a frontend job; those hosted jobs have not run in this workspace.
+macOS, Python 3.14.5, LM Studio on loopback with `openai/gpt-oss-20b`:
 
-Live inference, semantic prompt-injection evaluation, PostgreSQL server integration, real IMAP, Windows/macOS execution and rendered-browser accessibility acceptance remain unverified in this build. No production security score or universal language accuracy is claimed.
+- 142 automated tests ran successfully; two optional AgentDojo tests were skipped. Model doubles in this suite verify application controls, not detection accuracy.
+- Adversarial sender names cannot rename evidence IDs, tool IDs, completion fields or blocker metadata. Both the built-in loop and MCP retain the host's LOW_RISK downgrade.
+- Named inline MIME text is extracted; missing, malformed or undecodable body content blocks LOW_RISK and conditional waivers. Tests cover malformed multipart boundaries and attachment-only input.
+- UTF-8 tool budgets, stable pseudonym tokens, typed nested arguments, configuration isolation, HTTP failure responses, truthful cancellation/removal, retention across restart and action history are covered by regression tests.
+- Frontend DOM flows and JavaScript/Python syntax checks passed.
+- A freshly built wheel passed installation without dependencies or network access in a clean environment, outside the checkout: bundled assets, authenticated HTTP, SIGTERM, restart and SQLite backup.
+- Five real model investigations completed, each with all checks complete. The matching invoice was INCONCLUSIVE; changed payment details and the three direct/indirect injection samples were SUSPICIOUS. Latency was 40.5–54.5 seconds per message.
+- Live profile: one investigation at a time, 32,768 configured context tokens, 4,096 maximum output tokens, 120-second request timeout, 600-second investigation limit, 20 maximum calls, temperature zero. The model must be loaded with the matching context in LM Studio.
+- Real TLS IMAP login and read-only PEEK ingestion succeeded on an authorized test folder. Eight messages had extracted text, including the payment text from a named MIME body previously missed by the parser.
+- An isolated PostgreSQL server previously passed restricted reads, bound parameters, write/table denial, timeout, outage and recovery. SQLite integration is included in the automated suite.
 
-The live multilingual acceptance command is documented in [check rules](CHECKS.md). See [release acceptance](RELEASE-1.0.md).
+A sample returning INCONCLUSIVE does not establish successful attack recognition. These small synthetic evaluations do not establish universal phishing detection, language accuracy or prompt-injection resistance. Pseudonymization remains best effort.
 
-## Local macOS acceptance in progress — 2026-09-05
+Hosted Windows/macOS/Linux CI passed on the preceding public commit. The workflow runs source tests, compilation, isolated wheel installation and a frontend job; check the latest commit's run before distributing it.
 
-Python 3.14.5 / SQLite 3.53.1, LM Studio on loopback with `openai/gpt-oss-20b`:
+Live cloud-provider adapters, OAuth token refresh, human-approved MOVE on the deployment server and comprehensive manual accessibility acceptance remain unverified. Enabled quarantine now requires a verified destination and MOVE capability before settings are saved, but a preflight does not prove an actual move.
 
-- Real native tool calling passed (`doctor`).
-- The first invoice investigation exposed premature completion; the agent now receives a host-computed checklist each turn and explicit conditional-check names. The repeated live run completed all checks in 79.4 seconds. Its verdict remained INCONCLUSIVE because sender authentication and payment authorization require independent evidence.
-- 108 unit tests ran successfully (two optional AgentDojo tests skipped).
-- Frontend DOM flow passed with jsdom 26.
-- Fresh offline wheel installation passed on macOS, including assets, authenticated API, graceful termination, restart and backup outside the checkout.
+Run `python -m evaluation.demo_eval` for the five live samples and `python -m evaluation.semantic_eval` for the multilingual suite. External providers require explicit opt-in. Keep mailbox configuration, message data and detailed deployment results out of public commits.
 
-Multilingual and mailbox acceptance are still in progress. These observations do not authorize a stable-version label yet. Local reports and configuration are excluded from Git.
+See [release acceptance](RELEASE-1.0.md) and [model context budgets](HARNESS.md#context-and-output-budgets).

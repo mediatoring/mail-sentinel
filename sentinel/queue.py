@@ -101,7 +101,7 @@ class QueueStore(Store):
     def cancel(self, ident):
         with self.db() as db:
             # Revokes the claim so a stale worker cannot persist a completed result.
-            db.execute("UPDATE queue_items SET status='cancelled',owner=NULL,updated=? WHERE id=? AND status IN ('pending','running')",(time.time(),ident))
+            return db.execute("UPDATE queue_items SET status='cancelled',owner=NULL,updated=? WHERE id=? AND status IN ('pending','running')",(time.time(),ident)).rowcount == 1
 
     def owns(self, item):
         with self.db() as db:
@@ -109,7 +109,7 @@ class QueueStore(Store):
 
     def retry(self, ident):
         with self.db() as db:
-            db.execute("UPDATE queue_items SET status='pending',attempts=0,ready=0,error=NULL,updated=? WHERE id=? AND status IN ('failed','cancelled')",(time.time(),ident))
+            return db.execute("UPDATE queue_items SET status='pending',attempts=0,ready=0,error=NULL,updated=? WHERE id=? AND status IN ('failed','cancelled')",(time.time(),ident)).rowcount == 1
 
     def reserve_call(self, limit):
         now=time.time()
@@ -148,7 +148,7 @@ class QueueStore(Store):
         cutoff=time.time()-self.retention_days*86400
         with self.db() as db:
             db.execute("DELETE FROM queue_items WHERE updated<? AND status IN ('completed','failed','cancelled','skipped')",(cutoff,))
-            db.execute('DELETE FROM reports WHERE created<?',(cutoff,))
+            self.prune_reports(db,cutoff)
 
 
 class QueueService:

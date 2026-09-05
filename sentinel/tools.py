@@ -3,7 +3,7 @@ import hashlib
 import importlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
 from email.message import EmailMessage
 from email.utils import parseaddr
@@ -38,8 +38,23 @@ def organization(config, demo=False):
         if path.stat().st_size > 2_000_000:
             raise ValueError("Organization file exceeds 2 MB")
         data = json.loads(path.read_text("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("Organization file must contain an object")
         if data.get("demo"):
             raise ValueError("Demo registry cannot be used for real email")
+        shapes = {'vendors': {'id':str, 'name':str, 'domains':list, 'accounts':list, 'contacts':list},
+                  'orders': {'id':str, 'vendor_id':str, 'amount':str, 'currency':str},
+                  'policies': {'id':str, 'title':str, 'text':str},
+                  'indicators': {'domain':str, 'status':str, 'source':str}}
+        for section, fields in shapes.items():
+            rows = data.get(section, [])
+            if not isinstance(rows, list):
+                raise ValueError('Invalid organization section: ' + section)
+            for row in rows:
+                if not isinstance(row, dict) or any(type(row.get(k)) is not kind for k, kind in fields.items()):
+                    raise ValueError('Missing or invalid organization fields in: ' + section)
+                if any(not all(isinstance(v,str) for v in row[k]) for k,kind in fields.items() if kind is list):
+                    raise ValueError('Invalid organization list in: ' + section)
         return data
     return {"vendors": [], "orders": [], "policies": [], "indicators": []}
 
@@ -76,7 +91,8 @@ class Tool:
 
 class Registry:
     def __init__(self, message, org, privacy, config):
-        self.message, self.org, self.privacy, self.c = message, org, privacy, config
+        self.message, self.org, self.privacy = message, org, privacy
+        self.c = replace(config, check_modes=dict(config.check_modes))
         display_name = parseaddr(message.get("sender", ""))[0]
         if len(display_name) >= 3:
             self.privacy.terms = sorted(set(self.privacy.terms + [display_name]), key=len, reverse=True)
@@ -94,7 +110,7 @@ class Registry:
         self.c.check_modes={n:self.mode(n) for n,t in self.catalog.items() if t.check}
         conditional=[n for n,t in self.catalog.items() if t.check and self.mode(n)=="conditional"]
         if conditional:
-            self.add(Tool("assess_applicability","Record your semantic assessment for conditional checks in any language. Classify EVERY conditional check exactly once across the three arrays, including checks already performed: " + ", ".join(conditional) + ". Explain your reasoning. This is a model assessment, not independently verified evidence.",schema({"applicable":{"type":"array","items":{"type":"string"}},"not_applicable":{"type":"array","items":{"type":"string"}},"uncertain":{"type":"array","items":{"type":"string"}},"reason":{"type":"string"}},["applicable","not_applicable","uncertain","reason"]),self.assess_applicability,check=False,preview=False))
+            self.add(Tool("assess_applicability","Record your semantic assessment for conditional checks in any language. Classify EVERY conditional check exactly once across the three arrays, including checks already performed: " + ", ".join(conditional) + ". Explain your reasoning. This is a model assessment, not independently verified evidence.",schema({"applicable":{"type":"array","items":{"type":"string","enum":conditional}},"not_applicable":{"type":"array","items":{"type":"string","enum":conditional}},"uncertain":{"type":"array","items":{"type":"string","enum":conditional}},"reason":{"type":"string"}},["applicable","not_applicable","uncertain","reason"]),self.assess_applicability,check=False,preview=False))
 
     def mode(self,name):
         tool=self.catalog[name]
@@ -122,7 +138,7 @@ class Registry:
         if set(flattened)!=expected or len(flattened)!=len(expected) or not reason.strip():
             raise ValueError("Classify each conditional check exactly once and explain the assessment")
         # The model cannot waive a semantic check without access to message text.
-        if not_applicable and (self.c.privacy_mode=="evidence_only" or self.message.get("body_truncated")):
+        if not_applicable and (self.c.privacy_mode=="evidence_only" or self.message.get("body_truncated") or self.message.get("body_unavailable")):
             uncertain=uncertain+not_applicable;not_applicable=[]
         return {"applicable":applicable,"not_applicable":not_applicable,"uncertain":uncertain,"reason":reason,
                 "assessment_source":"model","independently_verified":False}
@@ -141,24 +157,49 @@ class Registry:
         # Completion metadata is computed by the registered plugin, never model arguments.
         blockers=tool.blockers(raw) if tool.blockers else []
         if not isinstance(blockers,list) or not all(isinstance(item,str) for item in blockers):raise ValueError("Invalid plugin blockers")
-        raw["_check"]={"available":bool(tool.available(raw)) if tool.available else bool(raw.get("available",True)) and not bool(raw.get("error")),"blockers":blockers}
-        result = self.privacy.protect(raw)
-        if len(json.dumps(result)) > 20000:
+        available = bool(tool.available(raw)) if tool.available else bool(raw.get("available",True)) and not bool(raw.get("error"))
+        result = self.privacy.protect({k:v for k,v in raw.items() if k != '_check'})
+        if name == 'assess_applicability':
+            # Validated catalog IDs are protocol data, never redaction terms.
+            result = {**{k:raw[k] for k in ('applicable','not_applicable','uncertain','assessment_source','independently_verified')},
+                      'reason':self.privacy.text(raw['reason'])}
+        result['_check'] = {'available':available, 'blockers':self.privacy.protect(blockers)}
+        if len(json.dumps(result, ensure_ascii=False).encode('utf-8')) > 20000:
             raise ValueError("Tool response exceeds limit")
         return result
 
+    def evidence(self, ident, name, arguments, status, output):
+        """Preserve the host envelope around already protected tool output."""
+        return {'id':ident, 'tool':name if name in self.catalog else self.privacy.text(name),
+                'arguments':self.privacy.protect(arguments), 'status':status, 'observation':output}
+
 
 def validate_arguments(args, spec):
-    if not isinstance(args, dict) or set(args) - set(spec.get("properties", {})) or set(spec.get("required", [])) - set(args):
-        raise ValueError("Invalid tool arguments")
-    for key, value in args.items():
-        rule = spec["properties"][key]
-        types = {"string": str, "array": list, "integer": int, "boolean": bool, "object": dict}
-        if rule.get("type") in types and type(value) is not types[rule["type"]]:
-            raise ValueError("Invalid tool argument type")
-        if "enum" in rule and value not in rule["enum"]:
-            raise ValueError("Invalid tool argument value")
-        if isinstance(value, str) and len(value) > 4000:
-            raise ValueError("Tool argument too long")
-        if isinstance(value, list) and (len(value) > 30 or not all(isinstance(x, str) and len(x) <= 4000 for x in value)):
-            raise ValueError("Invalid tool argument list")
+    import math
+    def validate(value, rule, depth=0):
+        if depth > 8:
+            raise ValueError('Tool arguments nested too deeply')
+        types = {'string':(str,), 'array':(list,), 'integer':(int,), 'number':(int,float), 'boolean':(bool,), 'object':(dict,)}
+        if rule.get('type') not in types or type(value) not in types[rule['type']]:
+            raise ValueError('Invalid tool argument type')
+        if 'enum' in rule and value not in rule['enum']:
+            raise ValueError('Invalid tool argument value')
+        if isinstance(value, str) and len(value) > min(4000,rule.get('maxLength',4000)):
+            raise ValueError('Tool argument too long')
+        if type(value) in (int,float):
+            if not math.isfinite(value) or value < rule.get('minimum',-math.inf) or value > rule.get('maximum',math.inf):
+                raise ValueError('Invalid tool argument number')
+        if isinstance(value, list):
+            if len(value) > min(100,rule.get('maxItems',100)):
+                raise ValueError('Invalid tool argument list')
+            for item in value:
+                validate(item,rule.get('items',{'type':'string'}),depth+1)
+        if isinstance(value, dict):
+            properties=rule.get('properties',{})
+            if len(value)>100 or set(value)-set(properties) or set(rule.get('required',[]))-set(value):
+                raise ValueError('Invalid tool arguments')
+            for key,item in value.items():
+                validate(item,properties[key],depth+1)
+    validate(args,spec)
+    if len(json.dumps(args,ensure_ascii=False,allow_nan=False).encode())>32000:
+        raise ValueError('Tool arguments exceed total size limit')

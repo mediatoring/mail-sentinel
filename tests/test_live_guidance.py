@@ -24,7 +24,11 @@ class ProgressTests(unittest.TestCase):
 
     def test_semantic_definition_lists_all_conditional_checks(self):
         reg = registry()
-        description = next(t['description'] for t in reg.definitions() if t['name'] == 'assess_applicability')
+        definition = next(t for t in reg.definitions() if t['name'] == 'assess_applicability')
+        description = definition['description']
+        expected = {r['name'] for r in reg.check_catalog() if r['mode'] == 'conditional'}
+        for key in ('applicable','not_applicable','uncertain'):
+            self.assertEqual(set(definition['parameters']['properties'][key]['items']['enum']), expected)
         for row in reg.check_catalog():
             if row['mode'] == 'conditional':
                 self.assertIn(row['name'], description)

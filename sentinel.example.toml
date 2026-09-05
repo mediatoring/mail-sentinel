@@ -40,6 +40,8 @@ queue_per_hour = 60
 queue_attempts = 3
 daily_model_calls = 1000
 max_input_bytes = 500000
+# Match the context loaded in your model server; the application uses an estimate.
+context_tokens = 8192
 
 # Alternative: "oauth2", with an administrator-managed access token.
 imap_auth = "password"

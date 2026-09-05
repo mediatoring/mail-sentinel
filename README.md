@@ -164,7 +164,9 @@ See [database configuration](docs/DATA-SOURCES.md), [plugin contract](docs/EXTEN
 
 ## Readiness and recovery
 
-Run `python -m sentinel check` to validate configuration and load the evidence catalog and enabled skills without contacting AI or IMAP. Its JSON output excludes credentials; exit code 2 means configuration needs attention. `doctor` performs a real model tool-call test.
+Run `python -m sentinel check` to validate configuration and load the evidence catalog and enabled skills without contacting AI. When quarantine is enabled, it also connects to IMAP to verify the target folder and UID MOVE support without reading or moving messages. Its JSON output excludes credentials; exit code 2 means configuration needs attention. `doctor` performs a real model tool-call test.
+
+Set the loaded model context window in Settings to match your model server (`context_tokens`, default 8,192). Input is estimated before each request with room reserved for output; a context failure produces no verdict. Local reasoning models may need a larger context, output budget and timeout. See [model budgets](docs/HARNESS.md#context-and-output-budgets).
 
 Use `python -m sentinel backup backup.sqlite3` for a consistent report/queue snapshot. Configuration, evidence sources and credentials require separate backups. See [operations](docs/OPERATIONS.md) for restoration. Only one server, watcher or scan process can own a data directory.
 

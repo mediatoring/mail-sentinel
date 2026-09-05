@@ -31,13 +31,16 @@ def parse_email(raw, max_bytes=1_000_000):
         raise ValueError("Message exceeds configured size limit")
     m = BytesParser(policy=policy.default).parsebytes(raw)
     plain, html, attachments = [], [], []
+    body_unavailable = False
     for n, part in enumerate(m.walk()):
-        if n > 150:
+        if n >= 150:
             raise ValueError("Too many MIME parts")
+        if part.defects:
+            body_unavailable = True
         if part.is_multipart():
             continue
         data = part.get_payload(decode=True) or b""
-        if part.get_content_disposition() == "attachment" or part.get_filename():
+        if part.get_content_disposition() == "attachment" or (part.get_filename() and part.get_content_type() not in {"text/plain", "text/html"}):
             attachments.append({"filename": str(part.get_filename() or "unnamed"), "mime": part.get_content_type(), "size": len(data), "sha256": hashlib.sha256(data).hexdigest()})
         elif part.get_content_type() in {"text/plain", "text/html"}:
             charset = part.get_content_charset() or "utf-8"
@@ -45,15 +48,25 @@ def parse_email(raw, max_bytes=1_000_000):
                 text = data.decode(charset, errors="replace")
             except LookupError:
                 text = data.decode("utf-8", errors="replace")
+                body_unavailable = True
+            if '\ufffd' in text or part.defects:
+                body_unavailable = True
             (plain if part.get_content_type() == "text/plain" else html).append(text)
     h = TextHTML()
     h.feed("\n".join(html))
     body = "\n".join(plain) if plain else " ".join(h.text)
-    urls = list(dict.fromkeys(h.links + re.findall(r"https?://[^\s<>\"']+", body)))[:50]
+    body_unavailable = body_unavailable or not bool(body.strip())
+    urls = []
+    for url in h.links + re.findall(r"https?://[^\s<>\"']+", body):
+        url = url.rstrip('.,;)')
+        if re.match(r'^https?://[^\s<>]+$', url, re.I) and url not in urls:
+            urls.append(url)
+        if len(urls) == 50:
+            break
     return {"id": hashlib.sha256(raw).hexdigest(), "subject": str(m.get("Subject", "")),
             "sender": str(m.get("From", "")), "sender_address": parseaddr(str(m.get("From", "")))[1],
             "reply_to": parseaddr(str(m.get("Reply-To", "")))[1], "body": body[:50000],
-            "body_truncated": len(body) > 50000, "urls": [u.rstrip(".,;)") for u in urls],
+            "body_truncated": len(body) > 50000, "body_unavailable": body_unavailable, "urls": urls,
             "attachments": attachments, "authentication_note": "Authentication headers are not verified by this parser. Consult your trusted receiving mail server.",
             "source": "file"}
 
@@ -63,7 +76,7 @@ class Mailbox:
         self.c = config
 
     @contextmanager
-    def connect(self, readonly=True):
+    def connect(self, readonly=True, password=None):
         if not self.c.imap_host or not self.c.imap_user:
             raise ValueError("Configure IMAP host, user and password environment variable")
         client = imaplib.IMAP4_SSL(self.c.imap_host, self.c.imap_port, ssl_context=ssl.create_default_context(), timeout=self.c.timeout)
@@ -75,7 +88,7 @@ class Mailbox:
                 auth = ("user="+self.c.imap_user+"\x01auth=Bearer "+token+"\x01\x01").encode()
                 client.authenticate("XOAUTH2", lambda challenge: auth if not challenge else b"")
             else:
-                client.login(self.c.imap_user, os.environ[self.c.imap_password_env])
+                client.login(self.c.imap_user, os.environ[self.c.imap_password_env] if password is None else password)
             typ, _ = client.select('"' + self.c.imap_folder + '"', readonly=readonly)
             if typ != "OK":
                 raise ValueError("Configured IMAP folder does not exist")
@@ -137,11 +150,20 @@ class Mailbox:
         with self.connect(readonly=False) as client:
             if self.identity(client) != ref["uidvalidity"]:
                 raise ValueError("Mailbox UIDVALIDITY changed; reload message")
-            if b"MOVE" not in client.capabilities:
-                raise ValueError("Server must support UID MOVE; no destructive fallback")
+            self.check_quarantine(client)
             typ, _ = client.uid("MOVE", ref["uid"], '"' + self.c.quarantine_folder + '"')
             if typ != "OK":
                 raise ValueError("UID MOVE failed; verify destination folder exists")
+
+    def check_quarantine(self, client):
+        if self.c.quarantine_folder == self.c.imap_folder:
+            raise ValueError('Quarantine destination must differ from the input folder')
+        capabilities={c.decode('ascii') if isinstance(c,bytes) else c for c in client.capabilities}
+        if 'MOVE' not in capabilities:
+            raise ValueError('Server must support UID MOVE; no destructive fallback')
+        typ,_=client.status('"'+self.c.quarantine_folder+'"','(UIDVALIDITY)')
+        if typ!='OK':
+            raise ValueError('Quarantine folder does not exist; create it in your mail client and save its exact name')
 
 
     def discover(self, store):

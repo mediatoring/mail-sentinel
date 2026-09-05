@@ -45,6 +45,7 @@ class Config:
     queue_since: str = ""
     daily_model_calls: int = 1000
     max_input_bytes: int = 500000
+    context_tokens: int = 8192
     imap_auth: str = "password"
     imap_token_env: str = "SENTINEL_IMAP_ACCESS_TOKEN"
     skills_dir: str = "skills"
@@ -83,6 +84,8 @@ class Config:
             raise ValueError("Invalid queue limits")
         if not 1 <= self.daily_model_calls <= 100000 or not 10000 <= self.max_input_bytes <= 5000000:
             raise ValueError("Invalid model budget")
+        if not 2048 <= self.context_tokens <= 1048576 or self.max_output_tokens + 1024 >= self.context_tokens:
+            raise ValueError('Context window must leave room for input and output tokens')
         if self.queue_since:
             date.fromisoformat(self.queue_since)
         if self.imap_auth not in {"password", "oauth2"}:
@@ -139,7 +142,7 @@ def load_config(path="sentinel.toml"):
     unknown = set(values) - {f.name for f in fields(Config)}
     if unknown:
         raise ValueError("Unknown configuration setting: " + ", ".join(sorted(unknown)))
-    c = Config(**values)
+    c = Config(**values).validate()
     if p.exists():
         root = p.resolve().parent
         c.data_dir = str(root / c.data_dir)

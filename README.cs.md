@@ -47,7 +47,9 @@ Podrobný postup a příklady obsahuje [konfigurace datových zdrojů](docs/DATA
 
 ## Kontrola a obnova
 
-`python -m sentinel check` ověří konfiguraci, registraci nástrojů a zapnuté skills bez kontaktování AI nebo schránky. Výstup JSON neobsahuje přihlašovací údaje; návratový kód 2 upozorňuje na nutnou úpravu nastavení. Příkaz `doctor` ověří skutečné volání nástroje modelem.
+`python -m sentinel check` ověří konfiguraci, registraci nástrojů a zapnuté skills bez kontaktování AI. Pokud je zapnutá karanténa, připojí se také k IMAP a ověří cílovou složku a podporu UID MOVE, bez čtení nebo přesunu zpráv. Výstup JSON neobsahuje přihlašovací údaje; návratový kód 2 upozorňuje na nutnou úpravu nastavení. Příkaz `doctor` ověří skutečné volání nástroje modelem.
+
+V Nastavení zadejte kontext skutečně načtený na serveru modelu (`context_tokens`, výchozí hodnota 8 192). Aplikace před požadavkem odhadne velikost vstupu a rezervuje prostor pro výstup. Při překročení limitu nevydá verdikt. Lokální modely s uvažováním mohou potřebovat větší kontext, výstupní limit i čas na odpověď. Podrobnosti popisují [limity modelu](docs/HARNESS.md#context-and-output-budgets).
 
 `python -m sentinel backup backup.sqlite3` vytvoří konzistentní zálohu výsledků a fronty. Nastavení, ověřovací data a přihlašovací údaje zálohujte zvlášť. [Provozní návod](docs/OPERATIONS.md) popisuje obnovu. Datovou složku může používat jeden server, sledování nebo jednorázový scan. Při spuštění `watch` nastavte `queue_since`, nebo přidejte `--entire-folder` pro celou složku.
 

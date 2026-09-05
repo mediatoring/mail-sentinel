@@ -27,5 +27,5 @@ class ContextErrorTests(unittest.TestCase):
         self.assertEqual(result['status'],'incomplete')
         self.assertIsNone(result['report'])
         self.assertEqual(result['events'][-1]['error_code'],'context_limit')
-        self.assertIn('kontext',result['events'][-1]['message'])
+        self.assertIn('context',result['events'][-1]['message'])
         self.assertNotIn('PRIVATE',json.dumps(result))

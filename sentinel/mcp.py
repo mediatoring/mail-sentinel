@@ -44,8 +44,7 @@ class Session:
                     self.closed=True
                 else:
                     observation=self.registry.execute(name,args)
-                    output={'id':f'E{len(self.evidence)+1:02}','tool':name,'arguments':args,'status':'ok','observation':observation}
-                    output=self.registry.privacy.protect(output)
+                    output=self.registry.evidence(f'E{len(self.evidence)+1:02}',name,args,'ok',observation)
                     self.evidence.append(output)
                 result={'content':[{'type':'text','text':json.dumps(output,ensure_ascii=False)}],'isError':False}
             except Exception:

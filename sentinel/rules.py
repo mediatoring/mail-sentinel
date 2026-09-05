@@ -4,7 +4,7 @@
 def check_status(registry,evidence):
     assessments=[e['observation'] for e in evidence if e.get('tool')=='assess_applicability' and e.get('status')=='ok']
     assessment=assessments[-1] if assessments else {}
-    waived=set(assessment.get('not_applicable',[])) if registry.c.privacy_mode!='evidence_only' and not registry.message.get('body_truncated') else set()
+    waived=set(assessment.get('not_applicable',[])) if registry.c.privacy_mode!='evidence_only' and not registry.message.get('body_truncated') and not registry.message.get('body_unavailable') else set()
     rows=[]
     for name,tool in registry.catalog.items():
         if not tool.check:continue

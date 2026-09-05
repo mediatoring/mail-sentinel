@@ -28,3 +28,9 @@ The [MCP adapter](MCP.md) lets an external harness select evidence tools and req
 ### Completion progress
 
 Each model turn includes `completion_checklist`, computed by the host from validated tool observations, and `remaining_steps`. Checks that failed validation remain outstanding. Unverifiable reference data remains a visible gap; the checklist does not fabricate missing evidence or weaken final completion validation. The applicability tool explicitly lists all conditional check IDs so models can classify the entire catalog.
+
+### Context and output budgets
+
+Set `context_tokens` to the window actually loaded in the model server (default 8,192). Before a request, the host estimates input tokens from UTF-8 size at three bytes per token, adds 512 tokens for protocol overhead, and reserves `max_output_tokens`. This is an estimate, not an exact tokenizer; provider-side context errors are also classified safely. `max_input_bytes` separately limits cumulative traffic over the investigation. The model server's context setting must be changed in the server itself.
+
+After `inspect_message`, the initial message is replaced with a reference to that observation to avoid sending the same body twice. Evidence is otherwise retained in full; the host does not silently discard earlier conflicts to fit the context. Oversized investigations stop visibly without a verdict. Reduce input size or increase both configured and loaded context. Model reasoning counts toward the server's output limit; slow local models may also need a larger request timeout. Lowering step limits below the required checks plus completion is not a solution.

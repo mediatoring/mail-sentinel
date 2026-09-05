@@ -1,4 +1,4 @@
-"""Readiness checks without model requests or mailbox reads."""
+"""Readiness checks without model requests or message reads."""
 import dataclasses
 import os
 import platform
@@ -36,6 +36,15 @@ def readiness(config):
         add("mailbox_credentials", "pass" if config.imap_user and os.environ.get(credential) else "fail", "Present; connection not tested" if config.imap_user and os.environ.get(credential) else "Set the mailbox user and configured credential environment variable.")
     else:
         add("mailbox", "info", "Not configured. Demo and EML input remain available.")
+    if config.allow_quarantine:
+        from .mail import Mailbox
+        try:
+            mailbox=Mailbox(config)
+            with mailbox.connect() as client:
+                mailbox.check_quarantine(client)
+            add('quarantine','pass','Destination exists and server supports UID MOVE; no messages moved.')
+        except Exception:
+            add('quarantine','fail','Cannot verify quarantine destination or UID MOVE support. Check credentials and the exact folder name in your mail client.')
     add("live_acceptance", "info", "Run doctor for a real tool-call test, then analyze representative messages. Local checks do not establish detection accuracy.")
     return {"version": __version__, "ready": not any(c["status"] == "fail" for c in checks), "checks": checks}
 

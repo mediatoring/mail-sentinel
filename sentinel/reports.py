@@ -18,6 +18,8 @@ def complete_report(registry, supplied, evidence, finish_schema):
         gaps.append('Required checks were not performed or could not be verified.')
     if registry.message.get('body_truncated'):
         gaps.append('Message text exceeded the parsing limit.')
+    if registry.message.get('body_unavailable'):
+        gaps.append('Message text could not be completely extracted. Review the original message.')
     for e in evidence:
         if e.get('status')!='ok':continue
         gaps.extend(e['observation'].get('_check',{}).get('blockers',[]))
@@ -36,4 +38,6 @@ def complete_report(registry, supplied, evidence, finish_schema):
     arguments['analysis_scope'] = registry.c.privacy_mode
     if registry.c.privacy_mode=='evidence_only':
         arguments['uncertainties'].append('Email text was withheld; semantic analysis was not performed.')
-    return registry.privacy.protect(arguments)
+    for field in ('summary', 'recommendations', 'uncertainties'):
+        arguments[field] = registry.privacy.protect(arguments[field])
+    return arguments

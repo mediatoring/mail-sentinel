@@ -130,6 +130,9 @@ def _serve(config, port, config_path):
     assets = Path(__file__).with_name("static")
 
     class Handler(BaseHTTPRequestHandler):
+        def version_string(self):
+            return 'Mail Sentinel'
+
         def log_message(self, *args):
             pass  # No secrets, subjects or URLs in HTTP logs.
 
@@ -145,19 +148,34 @@ def _serve(config, port, config_path):
             self.end_headers()
             self.wfile.write(body)
 
+        def send_error(self, code, message=None, explain=None):
+            self.send({'error':'Unsupported request'},code)
+
+        def valid_host(self):
+            return self.headers.get('Host','').lower() in {f'127.0.0.1:{self.server.server_port}',f'localhost:{self.server.server_port}'}
+
         def authorized(self):
-            host = self.headers.get("Host", "")
+            host = self.headers.get("Host", "").lower()
             allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
             if host not in allowed:
                 return False
             origin = self.headers.get("Origin")
-            if origin and origin != "http://" + host:
+            if origin and origin.lower() != "http://" + host:
                 return False
-            return secrets.compare_digest(self.headers.get("X-Sentinel-Token", ""), app.token)
+            token=self.headers.get("X-Sentinel-Token", "")
+            return token.isascii() and secrets.compare_digest(token, app.token)
 
         def do_GET(self):
+            try:
+                return self.get()
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            except Exception:
+                return self.send({'error':'Local data or extension could not be loaded'},500)
+
+        def get(self):
             path = urlsplit(self.path).path
-            if self.headers.get("Host") not in {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}:
+            if not self.valid_host():
                 return self.send({"error": "Invalid host"}, 403)
             static = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css", "/controls.js": "controls.js", "/i18n.js":"i18n.js"}
             if path in static:
@@ -178,7 +196,7 @@ def _serve(config, port, config_path):
                     if not message:
                         return self.send({"error":"Message not found"},404)
                     # Authenticated local display only; never part of a model request.
-                    body={k:message.get(k) for k in ("id","subject","sender","body","body_truncated","source")}
+                    body={k:message.get(k) for k in ("id","subject","sender","body","body_truncated","body_unavailable","source")}
                     body["latest"]=app.store.latest(mid)
                     reg=app.prepare(mid)
                     body["reference_required"]=any(reg.mode(n) in {'required','conditional'} and t.reference_keys for n,t in reg.catalog.items())
@@ -216,7 +234,7 @@ def _serve(config, port, config_path):
                 except Exception as e:
                     return self.send({"error":"Check configuration could not be loaded; verify plugin modules and data source file"},400)
             if path == "/api/settings":
-                fields = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file"]
+                fields = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file"]
                 return self.send({k: getattr(config, k) for k in fields})
             if path.startswith("/api/jobs/"):
                 with app.lock:
@@ -228,18 +246,38 @@ def _serve(config, port, config_path):
             if not self.authorized():
                 return self.send({"error": "Unauthorized request"}, 403)
             try:
-                length = int(self.headers.get("Content-Length", "0"))
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    return self.send({'error':'Invalid request body'},400)
                 if not 0 < length <= config.max_message_bytes * 2:
                     raise ValueError("Request too large or empty")
-                data = json.loads(self.rfile.read(length))
+                try:
+                    data = json.loads(self.rfile.read(length))
+                except (ValueError,UnicodeError):
+                    return self.send({'error':'Invalid request body'},400)
                 if not isinstance(data, dict):
                     raise ValueError("Expected JSON object")
                 path = urlsplit(self.path).path
+                required = {'/api/cancel':'job_id','/api/queue/cancel':'id','/api/queue/retry':'id',
+                            '/api/remove-message':'message_id','/api/preview':'message_id','/api/analyze':'message_id',
+                            '/api/import':'eml_base64','/api/approve':'token'}
+                if path in required and (not isinstance(data.get(required[path]),str) or not data[required[path]]):
+                    return self.send({'error':'Invalid request fields'},400)
+                if path=='/api/approve' and (not isinstance(data.get('report_id'),str) or not data['report_id']):
+                    return self.send({'error':'Invalid request fields'},400)
+                if path in {'/api/preview','/api/analyze'} and data['message_id'] not in app.messages:
+                    return self.send({'error':'Message not found'},404)
                 if path == "/api/models":
                     return self.send({"models":Provider(ConnectionDraft(config,data)).models()})
                 if path == "/api/cancel":
-                    cancel=app.cancellations.get(data.get("job_id"))
-                    if cancel: cancel.set()
+                    with app.lock:
+                        job=app.jobs.get(data['job_id'])
+                        if not job:
+                            return self.send({'error':'Job not found'},404)
+                        if job['status']!='running':
+                            return self.send({'error':'Operation is not available in the current state'},409)
+                        app.cancellations[data['job_id']].set()
                     return self.send({"status":"cancellation_requested"})
                 if path == "/api/queue/pause":
                     app.store.pause(True)
@@ -258,17 +296,21 @@ def _serve(config, port, config_path):
                     app.store.pause(False)
                     return self.send({"status":"running"})
                 if path == "/api/queue/cancel":
-                    app.store.cancel(data["id"])
+                    if not app.store.cancel(data["id"]):
+                        return self.send({'error':'Queue item not found or state has changed'},409)
                     return self.send({"status":"cancelled"})
                 if path == "/api/queue/retry":
-                    app.store.retry(data["id"])
+                    if not app.store.retry(data["id"]):
+                        return self.send({'error':'Queue item not found or state has changed'},409)
                     return self.send({"status":"pending"})
                 if path == "/api/settings":
+                    if not data:
+                        return self.send({'error':'No settings supplied'},400)
                     with app.lock:
                         if app.busy or not app.store.paused() or app.store.overview()["counts"].get("running",0):
                             raise ValueError("Pause the queue and wait for active investigations before editing settings")
                         values = dataclasses.asdict(config)
-                        fields = {"provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file"}
+                        fields = {"provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file"}
                         if set(data) - fields - {"api_key", "imap_password", "data_sources"}:
                             raise ValueError("Unknown setting")
                         for k in fields & set(data):
@@ -295,7 +337,12 @@ def _serve(config, port, config_path):
                             values['data_sources_file']=str(destination)
                         from .config import Config
                         updated = Config(**values).validate()
-                        registry=Registry({"source":"file","sender":"","body":"","subject":"","attachments":[],"urls":[]},organization(updated),Privacy(),updated)
+                        if updated.plugins != config.plugins:
+                            probe=Registry({'source':'file','sender':'','body':'','subject':'','attachments':[],'urls':[]},organization(updated),Privacy(),dataclasses.replace(updated,check_modes={}))
+                            removed=set(config.check_modes)-set(probe.catalog)
+                            updated.check_modes={k:v for k,v in updated.check_modes.items() if k not in removed}
+                            values['check_modes']=updated.check_modes
+                        registry=Registry({"source":"file","sender":"","body":"","subject":"","attachments":[],"urls":[]},organization(updated),Privacy(),dataclasses.replace(updated))
                         minimum=1+sum(row['mode'] in {'required','conditional'} for row in registry.check_catalog())
                         if updated.max_steps<minimum:
                             raise ValueError("Model call limit is too low for the selected checks (minimum "+str(minimum)+")")
@@ -306,6 +353,10 @@ def _serve(config, port, config_path):
                         for key in ("api_key", "imap_password"):
                             if key in data and (not isinstance(data[key], str) or len(data[key]) > 4000):
                                 raise ValueError("Invalid credential")
+                        if updated.allow_quarantine:
+                            password=data.get('imap_password') or (os.environ.get(updated.imap_password_env) if not mailbox_changed else '')
+                            with Mailbox(updated).connect(password=password) as client:
+                                Mailbox(updated).check_quarantine(client)
                         p = Path(config_path).resolve()
                         content = "# Secrets are held in process memory or environment variables, not this file.\n" + "\n".join(k + " = " + encode_toml(v) for k, v in values.items()) + "\n"
                         import tempfile
@@ -353,7 +404,11 @@ def _serve(config, port, config_path):
                     with app.lock:
                         if app.busy: raise ValueError("Wait for the active investigation")
                         msg=app.messages.get(data.get('message_id'))
-                        if msg and msg['source']!='demo': app.messages.pop(msg['id'])
+                        if not msg:
+                            return self.send({'error':'Message not found'},404)
+                        if msg['source']=='demo':
+                            return self.send({'error':'Sample messages cannot be removed'},409)
+                        app.messages.pop(msg['id'])
                     return self.send({"status":"removed"})
                 if path == "/api/import":
                     raw = base64.b64decode(data["eml_base64"], validate=True)

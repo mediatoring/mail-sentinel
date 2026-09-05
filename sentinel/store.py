@@ -20,7 +20,7 @@ class Store:
             db.execute("CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, message_id TEXT, created REAL, status TEXT, result TEXT)")
             db.execute("CREATE INDEX IF NOT EXISTS reports_created ON reports(created DESC)")
             db.execute("CREATE INDEX IF NOT EXISTS reports_message ON reports(message_id,created DESC)")
-            db.execute("DELETE FROM reports WHERE created < ?", (time.time()-retention_days*86400,))
+            self.prune_reports(db, time.time()-retention_days*86400)
         try:
             os.chmod(self.path, 0o600)
         except OSError:
@@ -39,7 +39,7 @@ class Store:
     def save(self, message_id, result):
         rid = secrets.token_hex(12)
         with self.lock, self.db() as db:
-            db.execute("DELETE FROM reports WHERE created < ?", (time.time()-self.retention_days*86400,))
+            self.prune_reports(db, time.time()-self.retention_days*86400)
             db.execute("INSERT INTO reports VALUES (?, ?, ?, ?, ?)", (rid, message_id, time.time(), result["status"], json.dumps(result)))
         return rid
 
@@ -60,7 +60,7 @@ class Store:
 
     def latest(self, message_id):
         with self.db() as db:
-            row=db.execute("SELECT id,result FROM reports WHERE message_id=? ORDER BY created DESC LIMIT 1",(message_id,)).fetchone()
+            row=db.execute("SELECT id,result FROM reports WHERE message_id=? AND status!='action' ORDER BY created DESC LIMIT 1",(message_id,)).fetchone()
             return {"report_id":row[0],**json.loads(row[1])} if row else None
 
     def report(self, ident):
@@ -69,11 +69,9 @@ class Store:
             return json.loads(row[0]) if row else None
 
 
-    def attempts(self, message_id):
-        with self.db() as db:
-            return db.execute("SELECT count(*) FROM reports WHERE message_id=? AND created>?", (message_id, time.time()-86400)).fetchone()[0]
-
     def propose(self, report_id, message):
+        if message.get('source') != 'imap' or not isinstance(message.get('imap_ref'),dict):
+            raise ValueError('Quarantine requires an IMAP message')
         with self.lock:
             token = secrets.token_urlsafe(24)
             self.pending[token] = {"report_id": report_id, "message_id": message["id"], "ref": dict(message["imap_ref"]), "expires": time.time()+600}
@@ -81,7 +79,17 @@ class Store:
 
     def consume(self, token, report_id):
         with self.lock:
-            proposal = self.pending.get(token)
+            if not isinstance(token,str) or not token.isascii():
+                raise ValueError('Approval expired or mismatched')
+            matched = next((key for key in self.pending if secrets.compare_digest(key,token)),None)
+            proposal = self.pending.get(matched)
             if not proposal or proposal["report_id"] != report_id or proposal["expires"] < time.time():
                 raise ValueError("Approval expired or mismatched")
-            return self.pending.pop(token)
+            return self.pending.pop(matched)
+
+    def prune_reports(self, db, cutoff):
+        # Called on startup, interactive saves and queue cleanup alike.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='queue_items'").fetchone():
+            db.execute('DELETE FROM reports WHERE created<? AND id NOT IN (SELECT report_id FROM queue_items WHERE report_id IS NOT NULL)',(cutoff,))
+        else:
+            db.execute('DELETE FROM reports WHERE created<?',(cutoff,))

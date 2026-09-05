@@ -20,7 +20,7 @@ Review plugin code and skill changes as trusted configuration. The process is no
 
 ## Readiness, backup and restore
 
-Run `python -m sentinel check` with the same configuration and environment as the service. This loads trusted plugins and validates their registration, source definitions and enabled skills. It does not execute evidence queries, contact IMAP or make a model request. Required local reference data must be populated or its check mode changed. The exit code is 0 when these local checks pass, 2 when settings require attention. A passing check does not replace `doctor` or deployment acceptance.
+Run `python -m sentinel check` with the same configuration and environment as the service. This loads trusted plugins and validates their registration, source definitions and enabled skills. It does not execute evidence queries or make a model request. With quarantine enabled, it connects to IMAP and verifies UID MOVE support and the exact destination folder name without reading or moving messages. Create that folder in your mail client first (some servers require an `INBOX.` prefix). The same check runs before saving enabled quarantine settings and immediately before an approved move. Required local reference data must be populated or its check mode changed. Exit code 2 means settings require attention. A passing check does not replace `doctor` or deployment acceptance.
 
 Create a consistent database snapshot while the application is running:
 
