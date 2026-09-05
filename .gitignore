@@ -15,4 +15,5 @@ agentdojo-results*.json
 
 .DS_Store
 .acceptance/
+.local-presets/
 node_modules/
