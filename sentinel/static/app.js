@@ -5,7 +5,7 @@ document.querySelectorAll('[data-t]').forEach(e=>{if(!Object.hasOwn(en,e.dataset
 let lang=localStorage.getItem('sentinel-lang')||'en',state=null,selected=null,previewed=false,running=false,currentJob=null,lastJob=null;
 const $=id=>document.getElementById(id), t=k=>(lang==='cs'?cs[k]:en[k])||en[k]||k;
 const params=new URLSearchParams(location.hash.slice(1));
-if(params.get('token')) {sessionStorage.setItem('sentinel-token',params.get('token'));history.replaceState(null,'',location.pathname);}
+if(params.get('token')) {sessionStorage.setItem('sentinel-token',params.get('token'));history.replaceState(null,'',location.pathname+location.search);}
 const token=sessionStorage.getItem('sentinel-token')||'';
 // Reopening the terminal URL after a restart may only change the fragment.
 // Reload to consume the new token and discard the previous session's job state.

@@ -171,3 +171,5 @@ Set the loaded model context window in Settings to match your model server (`con
 Use `python -m sentinel backup backup.sqlite3` for a consistent report/queue snapshot. Configuration, evidence sources and credentials require separate backups. See [operations](docs/OPERATIONS.md) for restoration. Only one server, watcher or scan process can own a data directory.
 
 For deployment acceptance against a real model, run `python -m evaluation.semantic_eval` and `python -m evaluation.demo_eval` from the source checkout. Both use bundled synthetic data and save JSON results; external models additionally require `--allow-external`. Semantic evaluation supports repeatable `--case` selectors and checkpoints progress. See [validation](docs/VALIDATION.md) for measured results and remaining release gates.
+
+Load local mailbox/model presets directly in Settings. Views have their own addresses and support browser Back/Forward and refresh. See [local presets and page addresses](docs/LOCAL-PRESETS.md).

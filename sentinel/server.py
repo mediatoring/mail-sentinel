@@ -19,6 +19,9 @@ from .config import encode_toml
 from .tools import Registry, demo_messages, organization, redaction_terms
 
 
+EDITABLE_SETTINGS = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file", "timeout", "imap_port"]
+
+
 def connection_signature(config):
     return hashlib.sha256(json.dumps([config.provider,config.endpoint,config.model,config.api_key,config.allow_external]).encode()).hexdigest()
 
@@ -178,11 +181,17 @@ def _serve(config, port, config_path):
             if not self.valid_host():
                 return self.send({"error": "Invalid host"}, 403)
             static = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css", "/controls.js": "controls.js", "/i18n.js":"i18n.js"}
+            import re
+            if re.fullmatch(r"/(?:review|monitor|settings|history(?:/[A-Za-z0-9_-]{1,128})?)/?", path):
+                return self.send((assets / "index.html").read_bytes(), mime="text/html")
             if path in static:
                 mime = {"/": "text/html", "/app.js": "application/javascript", "/style.css": "text/css", "/controls.js": "application/javascript", "/i18n.js":"application/javascript"}[path]
                 return self.send((assets / static[path]).read_bytes(), mime=mime)
             if not self.authorized():
                 return self.send({"error": "Open the authenticated URL printed in your terminal"}, 403)
+            if path == "/api/presets":
+                from .presets import list_presets
+                return self.send({"presets":list_presets(config_path)})
             if path == "/api/state":
                 return self.send({"provider": config.provider, "model": config.model, "configured": bool(config.model and (not config.external or config.api_key)), "external": config.external,
                                   "connection_ok": app.connection_ok, "key_configured":bool(config.api_key),
@@ -234,7 +243,7 @@ def _serve(config, port, config_path):
                 except Exception as e:
                     return self.send({"error":"Check configuration could not be loaded; verify plugin modules and data source file"},400)
             if path == "/api/settings":
-                fields = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file"]
+                fields = EDITABLE_SETTINGS
                 return self.send({k: getattr(config, k) for k in fields})
             if path.startswith("/api/jobs/"):
                 with app.lock:
@@ -303,14 +312,23 @@ def _serve(config, port, config_path):
                     if not app.store.retry(data["id"]):
                         return self.send({'error':'Queue item not found or state has changed'},409)
                     return self.send({"status":"pending"})
+                preset_id = None
+                if path == "/api/presets/load":
+                    if set(data) != {"id"}:
+                        return self.send({"error":"Invalid request fields"},400)
+                    preset_id = data["id"]
+                    path = "/api/settings"
                 if path == "/api/settings":
                     if not data:
                         return self.send({'error':'No settings supplied'},400)
                     with app.lock:
                         if app.busy or not app.store.paused() or app.store.overview()["counts"].get("running",0):
                             raise ValueError("Pause the queue and wait for active investigations before editing settings")
+                        if preset_id is not None:
+                            from .presets import load_preset
+                            data = load_preset(config_path, preset_id, config, EDITABLE_SETTINGS)
                         values = dataclasses.asdict(config)
-                        fields = {"provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file"}
+                        fields = set(EDITABLE_SETTINGS)
                         if set(data) - fields - {"api_key", "imap_password", "data_sources"}:
                             raise ValueError("Unknown setting")
                         for k in fields & set(data):

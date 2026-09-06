@@ -54,3 +54,5 @@ V Nastavení zadejte kontext skutečně načtený na serveru modelu (`context_to
 `python -m sentinel backup backup.sqlite3` vytvoří konzistentní zálohu výsledků a fronty. Nastavení, ověřovací data a přihlašovací údaje zálohujte zvlášť. [Provozní návod](docs/OPERATIONS.md) popisuje obnovu. Datovou složku může používat jeden server, sledování nebo jednorázový scan. Při spuštění `watch` nastavte `queue_since`, nebo přidejte `--entire-folder` pro celou složku.
 
 Pro přijímací testy se skutečným modelem spusťte ze zdrojové složky `python -m evaluation.semantic_eval` a `python -m evaluation.demo_eval`. Používají syntetická data a ukládají výsledky do JSON; externí model navíc vyžaduje `--allow-external`. Vícejazyčný test umožňuje opakovat volbu `--case` a průběžně ukládá výsledky. Naměřené výsledky a zbývající podmínky vydání jsou v [záznamu ověření](docs/VALIDATION.md).
+
+Místní presety schránky a modelu načtete přímo v Nastavení. Pohledy mají vlastní adresy a podporují Zpět/Vpřed i obnovení stránky. Podrobnosti: [místní presety a adresy stránek](docs/LOCAL-PRESETS.md).
