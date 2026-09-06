@@ -173,3 +173,5 @@ Use `python -m sentinel backup backup.sqlite3` for a consistent report/queue sna
 For deployment acceptance against a real model, run `python -m evaluation.semantic_eval` and `python -m evaluation.demo_eval` from the source checkout. Both use bundled synthetic data and save JSON results; external models additionally require `--allow-external`. Semantic evaluation supports repeatable `--case` selectors and checkpoints progress. See [validation](docs/VALIDATION.md) for measured results and remaining release gates.
 
 Load local mailbox/model presets directly in Settings. Views have their own addresses and support browser Back/Forward and refresh. See [local presets and page addresses](docs/LOCAL-PRESETS.md).
+
+Saving the settings form does not create a preset. Copy [the partial preset example](examples/local-preset.toml) into the ignored `.local-presets/` directory and customize it. A new browser must first open the private startup URL or use **Connect browser** in the interface.

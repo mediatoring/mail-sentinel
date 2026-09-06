@@ -3,7 +3,8 @@ import dataclasses
 import json
 from pathlib import Path
 import re
-from .config import load_config
+import tomllib
+from .config import Config
 
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}')
 
@@ -31,9 +32,21 @@ def load_preset(config_path, ident, current, editable):
         raise ValueError('Invalid local preset identifier')
     root = directory(config_path)
     try:
-        preset = load_config(checked_file(root,ident+'.toml',65536))
-        values = dataclasses.asdict(preset)
-        if any(values[key] != getattr(current,key) for key in values if key not in editable):
+        supplied = tomllib.loads(checked_file(root,ident+'.toml',65536).read_text('utf-8'))
+        values = dataclasses.asdict(current)
+        if set(supplied) - set(values):
+            raise ValueError('Unknown preset setting')
+        for key in ('data_dir','skills_dir','organization_file','data_sources_file'):
+            if key in supplied and supplied[key]:
+                supplied[key] = str((root / supplied[key]).resolve())
+        values.update(supplied)
+        Config(**values).validate()
+        def startup_matches(key):
+            before, after = getattr(current,key), values[key]
+            if key in ('data_dir','skills_dir'):
+                return Path(before).resolve() == Path(after).resolve()
+            return before == after
+        if any(not startup_matches(key) for key in values if key not in editable):
             raise ValueError('Preset requires restarting the application')
         result = {key:values[key] for key in editable}
         credential_path = root / (ident+'.credentials.json')

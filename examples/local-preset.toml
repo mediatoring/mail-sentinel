@@ -1,0 +1,14 @@
+# Copy to .local-presets/my-local.toml beside the active sentinel.toml.
+# Only specified settings change; omitted settings keep their current values.
+# Save settings in the UI does NOT create or update this file.
+# Never put passwords or API keys in TOML. See docs/LOCAL-PRESETS.md.
+provider = "local"
+base_url = "http://127.0.0.1:1234/v1"
+model = "openai/gpt-oss-20b"
+imap_host = "mail.example.com"
+imap_port = 993
+imap_user = "user@example.com"
+imap_folder = "AI-review"
+imap_auth = "password"
+allow_external = false
+allow_quarantine = false

@@ -48,6 +48,18 @@ class PresetHTTPTests(unittest.TestCase):
         for ident in ['../sentinel','/tmp/private','test-local.toml','missing',5,None]:
             self.rejected('presets/load',{'id':ident})
 
+    def test_partial_example_keeps_runtime_paths_and_unspecified_settings(self):
+        root=self.preset()
+        original=self.config.data_dir
+        example=Path(__file__).resolve().parents[1]/'examples/local-preset.toml'
+        (root/'example.toml').write_text(example.read_text('utf-8'),'utf-8')
+        self.api('presets/load',{'id':'example'})
+        self.assertEqual(self.config.data_dir,original)
+        self.assertEqual(self.config.model,'openai/gpt-oss-20b')
+        self.assertEqual(self.config.imap_host,'mail.example.com')
+        (root/'invalid.toml').write_text('api_key = "must-not-accept"')
+        self.rejected('presets/load',{'id':'invalid'})
+
     def test_preset_endpoints_require_authentication(self):
         self.preset()
         for route,data in [('presets',None),('presets/load',b'{"id":"test-local"}')]:

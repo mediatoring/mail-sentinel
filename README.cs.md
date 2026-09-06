@@ -56,3 +56,5 @@ V Nastavení zadejte kontext skutečně načtený na serveru modelu (`context_to
 Pro přijímací testy se skutečným modelem spusťte ze zdrojové složky `python -m evaluation.semantic_eval` a `python -m evaluation.demo_eval`. Používají syntetická data a ukládají výsledky do JSON; externí model navíc vyžaduje `--allow-external`. Vícejazyčný test umožňuje opakovat volbu `--case` a průběžně ukládá výsledky. Naměřené výsledky a zbývající podmínky vydání jsou v [záznamu ověření](docs/VALIDATION.md).
 
 Místní presety schránky a modelu načtete přímo v Nastavení. Pohledy mají vlastní adresy a podporují Zpět/Vpřed i obnovení stránky. Podrobnosti: [místní presety a adresy stránek](docs/LOCAL-PRESETS.md).
+
+Uložení formuláře nevytváří preset. Zkopírujte [vzor částečného presetu](examples/local-preset.toml) do ignorované složky `.local-presets/` a upravte jej. Nový prohlížeč nejprve připojte soukromou adresou vypsanou při spuštění nebo pomocí **Připojit prohlížeč** v rozhraní.

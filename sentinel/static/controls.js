@@ -4,6 +4,15 @@
 
 
 let checkNames=[],checkCatalog=[],sourcesDirty=false;
+if(!token)requireSession();
+$('sessionConnect').onclick=()=>safe(async()=>{
+ const input=$('sessionUrl');let candidate;
+ try{const url=new URL(input.value.trim());candidate=new URLSearchParams(url.hash.slice(1)).get('token');if(url.origin!==location.origin||!candidate||!/^[A-Za-z0-9_-]{1,256}$/.test(candidate))throw Error();}
+ catch{throw Error(t('sessionUrlInvalid'));}
+ const response=await fetch('/api/state',{headers:{'X-Sentinel-Token':candidate}});
+ if(!response.ok)throw Error(t('sessionUrlInvalid'));
+ sessionStorage.setItem('sentinel-token',candidate);sessionStorage.removeItem('sentinel-job');input.value='';location.reload();
+});
 async function loadPresets(){
  const result=await api('presets'),select=$('savedPreset');
  select.replaceChildren();
