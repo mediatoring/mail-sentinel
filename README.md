@@ -174,4 +174,6 @@ For deployment acceptance against a real model, run `python -m evaluation.semant
 
 Load local mailbox/model presets directly in Settings. Views have their own addresses and support browser Back/Forward and refresh. See [local presets and page addresses](docs/LOCAL-PRESETS.md).
 
-Saving the settings form does not create a preset. Copy [the partial preset example](examples/local-preset.toml) into the ignored `.local-presets/` directory and customize it. A new browser must first open the private startup URL or use **Connect browser** in the interface.
+Saving the settings form does not create a preset. Copy [the partial preset example](examples/local-preset.toml) into the ignored `.local-presets/` directory and customize it.
+
+After installation on macOS, double-click **Open Mail Sentinel.command**. It opens the running application, or starts it in the background. The equivalent command is `mail-sentinel open` (or `python -m sentinel open`). No terminal command is needed for subsequent openings. Bookmarked page URLs work across tabs and browser restarts in the connected browser profile while the server remains running. After restarting the server, use the launcher again; it reconnects the browser automatically. Other browser profiles need their own initial connection. A background service uses the credentials supplied to its launcher; it does not automatically load a preset. See [desktop access](docs/LOCAL-PRESETS.md).

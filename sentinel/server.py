@@ -470,6 +470,8 @@ def _serve(config, port, config_path):
         server.server_close()
         raise
     server.daemon_threads = True
+    from .desktop import publish_session
+    publish_session(config, server.server_port, app.token, config_path)
     print(f"Mail Sentinel: http://127.0.0.1:{server.server_port}/#token={app.token}", flush=True)
     print("Local single-user service. Keep this URL private. Ctrl+C to stop.", flush=True)
     try:

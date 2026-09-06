@@ -20,6 +20,8 @@ def _main():
     sub = parser.add_subparsers(dest="command")
     web = sub.add_parser("serve", help="Start local EN/CZ interface")
     web.add_argument("--port", type=int, default=8765)
+    desktop = sub.add_parser("open", help="Open the app in your browser; start a background service if needed")
+    desktop.add_argument("--port", type=int, default=8765)
     sub.add_parser("setup", help="Create configuration interactively")
     sub.add_parser("doctor", help="Test actual model tool calling")
     sub.add_parser("check", help="Check configuration and extensions without contacting AI or IMAP; output contains no credentials")
@@ -59,6 +61,10 @@ def _main():
         print("Configuration written. Set SENTINEL_API_KEY if required, then run: python -m sentinel doctor")
         return
     c = load_config(args.config)
+    if args.command == "open":
+        from .desktop import open_app
+        open_app(c, args.config, args.port)
+        return
     if args.command == "check":
         from .diagnostics import readiness
         result = readiness(c)

@@ -11,7 +11,7 @@ $('sessionConnect').onclick=()=>safe(async()=>{
  catch{throw Error(t('sessionUrlInvalid'));}
  const response=await fetch('/api/state',{headers:{'X-Sentinel-Token':candidate}});
  if(!response.ok)throw Error(t('sessionUrlInvalid'));
- sessionStorage.setItem('sentinel-token',candidate);sessionStorage.removeItem('sentinel-job');input.value='';location.reload();
+ localStorage.setItem('sentinel-token',candidate);sessionStorage.removeItem('sentinel-job');input.value='';location.reload();
 });
 async function loadPresets(){
  const result=await api('presets'),select=$('savedPreset');

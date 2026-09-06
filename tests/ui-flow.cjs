@@ -15,10 +15,16 @@ async function testUnauthenticatedSession(){
  const calls=[],failures=[],console=new VirtualConsole();console.on('jsdomError',e=>failures.push(String(e)));
  const page=new JSDOM(html,{url:'http://127.0.0.1:8765/settings',runScripts:'dangerously',virtualConsole:console,beforeParse(w){w.fetch=async(url,args={})=>{calls.push({url,args});const ok=args.headers?.['X-Sentinel-Token']==='fresh-session';return {ok,status:ok?200:403,json:async()=>({error:'Open the authenticated URL printed in your terminal'})};};}});
  try{const w=page.window,$=id=>w.document.getElementById(id);await tick();assert(!$('sessionAccess').hidden);assert($('savedPreset').disabled);assert($('loadPreset').disabled);assert($('presetStatus').textContent.includes('Connect'));
- const count=calls.length;$('sessionUrl').value='https://untrusted.example/#token=fresh-session';$('sessionConnect').click();await tick();assert.equal(calls.length,count);assert.equal(w.sessionStorage.getItem('sentinel-token'),null);
- $('sessionUrl').value='http://127.0.0.1:8765/#token=expired';$('sessionConnect').click();await tick();assert.equal(w.sessionStorage.getItem('sentinel-token'),null);
- $('sessionUrl').value='http://127.0.0.1:8765/#token=fresh-session';$('sessionConnect').click();await tick();assert.equal(w.sessionStorage.getItem('sentinel-token'),'fresh-session');assert.equal($('sessionUrl').value,'');assert(calls.every(c=>c.url.startsWith('/api/')));assert(failures.every(e=>e.includes('navigation')));
+ const count=calls.length;$('sessionUrl').value='https://untrusted.example/#token=fresh-session';$('sessionConnect').click();await tick();assert.equal(calls.length,count);assert.equal(w.localStorage.getItem('sentinel-token'),null);
+ $('sessionUrl').value='http://127.0.0.1:8765/#token=expired';$('sessionConnect').click();await tick();assert.equal(w.localStorage.getItem('sentinel-token'),null);
+ $('sessionUrl').value='http://127.0.0.1:8765/#token=fresh-session';$('sessionConnect').click();await tick();assert.equal(w.localStorage.getItem('sentinel-token'),'fresh-session');assert.equal($('sessionUrl').value,'');assert(calls.every(c=>c.url.startsWith('/api/')));assert(failures.every(e=>e.includes('navigation')));
  }finally{page.window.close();}
+}
+async function testSharedBrowserSession(){
+ const calls=[],failures=[],console=new VirtualConsole();console.on('jsdomError',e=>failures.push(String(e)));
+ const page=new JSDOM(html,{url:'http://127.0.0.1:8765/settings',runScripts:'dangerously',virtualConsole:console,beforeParse(w){w.localStorage.setItem('sentinel-token','shared-browser-session');w.fetch=(url,args)=>{calls.push(args.headers['X-Sentinel-Token']);return new Promise(()=>{});};}});
+ try{await tick();const w=page.window;assert(w.document.getElementById('sessionAccess').hidden);assert(calls.includes('shared-browser-session'));w.sessionStorage.setItem('sentinel-job','old-job');w.localStorage.setItem('sentinel-token','restarted-session');w.dispatchEvent(new w.StorageEvent('storage',{key:'sentinel-token',newValue:'restarted-session'}));assert.equal(w.sessionStorage.getItem('sentinel-job'),null);assert(failures.every(e=>e.includes('navigation')));}
+ finally{page.window.close();}
 }
 (async()=>{const w=dom.window,$=id=>w.document.getElementById(id);await tick();const f=$('settings').elements;
  assert.equal(w.location.pathname,'/review');assert(!$('welcome').hidden);$('startDemo').click();await tick();assert.equal($('messageBody').querySelector('img'),null);assert($('messageBody').textContent.includes('<img'));assert(!$('referenceNote').hidden);
@@ -31,5 +37,5 @@ async function testUnauthenticatedSession(){
  pollStatus=404;await w.eval('poll()');assert($('notice').textContent.includes('Historii'));assert(!$('analyze').disabled);
  active=null;await w.eval('loadSettings()');w.document.querySelector('[data-view="settings"]').click();await tick();$('loadPreset').click();await tick();await tick();assert.equal(f.model.value,'restored-local-model');assert.equal(f.api_key.value,'');assert.equal(f.imap_password.value,'');assert.equal(w.location.pathname,'/settings');assert($('presetStatus').textContent.includes('Preset načten'));assert.deepEqual(requests.findLast(x=>x.endpoint==='presets/load').input,{id:'test-local'});
  assert.equal(errors.length,0,errors.join('\n'));w.sessionStorage.setItem('sentinel-job','old-session-job');w.location.hash='token=new-server-session';await tick();assert.equal(w.sessionStorage.getItem('sentinel-job'),null);assert(errors.every(e=>e.includes('navigation')),errors.join('\n'));console.log('PASS: session restart, first use, draft credentials, verified save, plain-text body, missing references, result navigation, CZ and reconnect state.');w.close();
- await testUnauthenticatedSession();console.log('PASS: missing/expired session, disabled preset loader, same-origin reconnect and token validation.');
+ await testUnauthenticatedSession();await testSharedBrowserSession();console.log('PASS: missing/expired session, disabled preset loader, same-origin reconnect, shared browser token and restart notification.');
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1;});

@@ -57,4 +57,6 @@ Pro přijímací testy se skutečným modelem spusťte ze zdrojové složky `pyt
 
 Místní presety schránky a modelu načtete přímo v Nastavení. Pohledy mají vlastní adresy a podporují Zpět/Vpřed i obnovení stránky. Podrobnosti: [místní presety a adresy stránek](docs/LOCAL-PRESETS.md).
 
-Uložení formuláře nevytváří preset. Zkopírujte [vzor částečného presetu](examples/local-preset.toml) do ignorované složky `.local-presets/` a upravte jej. Nový prohlížeč nejprve připojte soukromou adresou vypsanou při spuštění nebo pomocí **Připojit prohlížeč** v rozhraní.
+Uložení formuláře nevytváří preset. Zkopírujte [vzor částečného presetu](examples/local-preset.toml) do ignorované složky `.local-presets/` a upravte jej.
+
+Po instalaci na macOS stačí dvojklik na **Open Mail Sentinel.command**. Otevře běžící aplikaci, nebo ji spustí na pozadí. Odpovídající příkaz je `mail-sentinel open` (nebo `python -m sentinel open`). Pro další otevírání není nutné psát příkazy do terminálu. Záložky stránek fungují napříč kartami i po zavření prohlížeče ve stejném připojeném profilu, dokud běží server. Po restartu serveru znovu použijte spouštěč; prohlížeč připojí automaticky. Jiný profil prohlížeče vyžaduje vlastní první připojení. Služba na pozadí používá přihlašovací údaje předané spouštěči; preset nenačítá automaticky. Viz [přístup k aplikaci](docs/LOCAL-PRESETS.md).
