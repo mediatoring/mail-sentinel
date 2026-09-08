@@ -10,22 +10,59 @@ from contextlib import contextmanager
 
 
 class Store:
+    # Ordered schema steps; PRAGMA user_version records how many have run.
+    # The baseline is idempotent so databases written before versioning adopt it in place.
+    # Every later step runs exactly once and must not rely on IF NOT EXISTS.
+    MIGRATIONS = [
+        (
+            "CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, message_id TEXT, created REAL, status TEXT, result TEXT)",
+            "CREATE INDEX IF NOT EXISTS reports_created ON reports(created DESC)",
+            "CREATE INDEX IF NOT EXISTS reports_message ON reports(message_id,created DESC)",
+        ),
+    ]
+
     def __init__(self, directory, retention_days=30):
         root = Path(directory)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.path = root / "reports.sqlite3"
         self.retention_days = retention_days
         self.lock = threading.RLock()
+        self.migrate()
         with self.db() as db:
-            db.execute("CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, message_id TEXT, created REAL, status TEXT, result TEXT)")
-            db.execute("CREATE INDEX IF NOT EXISTS reports_created ON reports(created DESC)")
-            db.execute("CREATE INDEX IF NOT EXISTS reports_message ON reports(message_id,created DESC)")
             self.prune_reports(db, time.time()-retention_days*86400)
         try:
             os.chmod(self.path, 0o600)
         except OSError:
             pass
         self.pending = {}
+
+    def schema_version(self, connection):
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        if version > len(self.MIGRATIONS):
+            raise RuntimeError(f"{self.path} has schema version {version}; this build knows {len(self.MIGRATIONS)}")
+        return version
+
+    def migrate(self):
+        """Apply pending schema steps in one transaction so concurrent openers agree on the result."""
+        target = len(self.MIGRATIONS)
+        connection = sqlite3.connect(self.path, timeout=15)
+        connection.isolation_level = None
+        try:
+            if self.schema_version(connection) == target:
+                return
+            connection.execute("BEGIN IMMEDIATE")
+            version = self.schema_version(connection)
+            if version < target:
+                for statement in (s for step in self.MIGRATIONS[version:] for s in step):
+                    connection.execute(statement)
+                connection.execute(f"PRAGMA user_version={target}")
+            connection.execute("COMMIT")
+        except BaseException:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
 
     @contextmanager
     def db(self):
@@ -93,7 +130,4 @@ class Store:
 
     def prune_reports(self, db, cutoff):
         # Called on startup, interactive saves and queue cleanup alike.
-        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='queue_items'").fetchone():
-            db.execute('DELETE FROM reports WHERE created<? AND id NOT IN (SELECT report_id FROM queue_items WHERE report_id IS NOT NULL)',(cutoff,))
-        else:
-            db.execute('DELETE FROM reports WHERE created<?',(cutoff,))
+        db.execute('DELETE FROM reports WHERE created<?',(cutoff,))

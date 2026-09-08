@@ -15,25 +15,28 @@ from .budget import RunBudget
 
 
 class QueueStore(Store):
-    def __init__(self, directory, retention_days=30):
-        super().__init__(directory, retention_days)
-        with self.db() as db:
-            db.executescript('''
-                CREATE TABLE IF NOT EXISTS queue_items (
-                  id TEXT PRIMARY KEY, ref TEXT NOT NULL, status TEXT NOT NULL,
-                  attempts INTEGER DEFAULT 0, ready REAL DEFAULT 0, owner TEXT,
-                  lease REAL DEFAULT 0, created REAL, updated REAL, report_id TEXT, error TEXT);
-                CREATE INDEX IF NOT EXISTS queue_ready ON queue_items(status,ready,created);
-                CREATE INDEX IF NOT EXISTS queue_display ON queue_items(created DESC,id);
-                CREATE INDEX IF NOT EXISTS queue_cleanup ON queue_items(status,updated);
-                CREATE TABLE IF NOT EXISTS queue_cursors(scope TEXT PRIMARY KEY, uid INTEGER NOT NULL);
-                CREATE TABLE IF NOT EXISTS queue_starts(time REAL NOT NULL);
-                CREATE INDEX IF NOT EXISTS starts_time ON queue_starts(time);
-                CREATE TABLE IF NOT EXISTS model_calls(time REAL NOT NULL);
-                CREATE INDEX IF NOT EXISTS calls_time ON model_calls(time);
-                CREATE TABLE IF NOT EXISTS queue_control(id INTEGER PRIMARY KEY CHECK(id=1), paused INTEGER);
-                INSERT OR IGNORE INTO queue_control VALUES(1,1);
-            ''')
+    MIGRATIONS = Store.MIGRATIONS + [
+        (
+            '''CREATE TABLE IF NOT EXISTS queue_items (
+                 id TEXT PRIMARY KEY, ref TEXT NOT NULL, status TEXT NOT NULL,
+                 attempts INTEGER DEFAULT 0, ready REAL DEFAULT 0, owner TEXT,
+                 lease REAL DEFAULT 0, created REAL, updated REAL, report_id TEXT, error TEXT)''',
+            'CREATE INDEX IF NOT EXISTS queue_ready ON queue_items(status,ready,created)',
+            'CREATE INDEX IF NOT EXISTS queue_display ON queue_items(created DESC,id)',
+            'CREATE INDEX IF NOT EXISTS queue_cleanup ON queue_items(status,updated)',
+            'CREATE TABLE IF NOT EXISTS queue_cursors(scope TEXT PRIMARY KEY, uid INTEGER NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS queue_starts(time REAL NOT NULL)',
+            'CREATE INDEX IF NOT EXISTS starts_time ON queue_starts(time)',
+            'CREATE TABLE IF NOT EXISTS model_calls(time REAL NOT NULL)',
+            'CREATE INDEX IF NOT EXISTS calls_time ON model_calls(time)',
+            'CREATE TABLE IF NOT EXISTS queue_control(id INTEGER PRIMARY KEY CHECK(id=1), paused INTEGER)',
+            'INSERT OR IGNORE INTO queue_control VALUES(1,1)',
+        ),
+    ]
+
+    def prune_reports(self, db, cutoff):
+        # A report a queue item still points at outlives retention until cleanup removes the item.
+        db.execute('DELETE FROM reports WHERE created<? AND id NOT IN (SELECT report_id FROM queue_items WHERE report_id IS NOT NULL)',(cutoff,))
 
     def checkpoint(self, scope):
         with self.db() as db:

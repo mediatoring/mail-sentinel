@@ -2,6 +2,7 @@
 import contextlib
 import dataclasses
 import json
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -228,3 +229,45 @@ class HTTPAuditTests(test_ux_logic.HTTPUXTests):
             self.assertEqual(response.headers['Server'],'Mail Sentinel')
             self.assertIn("frame-ancestors 'none'",response.headers['Content-Security-Policy'])
             self.assertNotIn('line 1',response.read().decode())
+
+
+class SchemaVersionTests(unittest.TestCase):
+    """PRAGMA user_version is the record of applied schema steps; a stale file must adopt it in place."""
+
+    LEGACY = ('CREATE TABLE reports (id TEXT PRIMARY KEY, message_id TEXT, created REAL, status TEXT, result TEXT)',
+              'CREATE TABLE queue_items (id TEXT PRIMARY KEY, ref TEXT NOT NULL, status TEXT NOT NULL,'
+              ' attempts INTEGER DEFAULT 0, ready REAL DEFAULT 0, owner TEXT, lease REAL DEFAULT 0,'
+              ' created REAL, updated REAL, report_id TEXT, error TEXT)',
+              'CREATE TABLE queue_cursors(scope TEXT PRIMARY KEY, uid INTEGER NOT NULL)',
+              'CREATE TABLE queue_starts(time REAL NOT NULL)',
+              'CREATE TABLE model_calls(time REAL NOT NULL)',
+              'CREATE TABLE queue_control(id INTEGER PRIMARY KEY CHECK(id=1), paused INTEGER)')
+
+    def legacy_database(self, directory, version=0):
+        path = Path(directory)/'reports.sqlite3'
+        with contextlib.closing(sqlite3.connect(path)) as db:
+            for statement in self.LEGACY:
+                db.execute(statement)
+            db.execute('INSERT INTO reports VALUES(?,?,?,?,?)',('old','message',time.time(),'completed','{"status":"completed"}'))
+            db.execute('INSERT INTO queue_items(id,ref,status,created,updated) VALUES(?,?,?,?,?)',
+                       ('item','{"uid":"1"}','pending',time.time(),time.time()))
+            db.execute('INSERT INTO queue_control VALUES(1,1)')
+            db.execute(f'PRAGMA user_version={version}')
+            db.commit()
+        return path
+
+    def test_pre_versioning_database_is_adopted_without_losing_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.legacy_database(tmp)
+            store = QueueStore(tmp)
+            self.assertIsNotNone(store.report('old'))
+            self.assertEqual(store.overview()['counts'],{'pending':1})
+            self.assertTrue(store.paused())
+            with contextlib.closing(sqlite3.connect(path)) as db:
+                self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],len(QueueStore.MIGRATIONS))
+
+    def test_database_from_a_newer_build_is_refused_rather_than_written_to(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.legacy_database(tmp,version=len(QueueStore.MIGRATIONS)+1)
+            with self.assertRaises(RuntimeError):
+                QueueStore(tmp)
