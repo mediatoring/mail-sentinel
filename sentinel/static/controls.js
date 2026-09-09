@@ -121,6 +121,14 @@ const userErrors={
  'No settings supplied':['No settings were supplied.','Nebylo zadáno žádné nastavení.'],
  'Sample messages cannot be removed':['Bundled sample messages cannot be removed.','Vestavěné ukázkové zprávy nelze odstranit.'],
  'Quarantine folder does not exist; create it in your mail client and save its exact name':['Create the quarantine folder in your mail client, then save its exact name here.','V poštovním klientovi vytvořte karanténní složku a zde uložte její přesný název.'],
+ 'A local preset with this name already exists':['A preset with this name already exists. Choose another name.','Preset s tímto názvem už existuje. Zvolte jiný název.'],
+ 'Invalid local preset identifier':['Use only letters, digits, hyphens and underscores in the preset name.','V názvu presetu použijte jen písmena, číslice, pomlčky a podtržítka.'],
+ 'Unknown preset field':['The request contains an unsupported preset field. Reload the application.','Požadavek obsahuje nepodporované pole presetu. Obnovte aplikaci.'],
+ 'Unsupported IMAP folder name':['Choose a folder from the list before saving.','Před uložením vyberte složku ze seznamu.'],
+ 'Configured IMAP folder does not exist':['That folder does not exist in this mailbox. Pick one of the folders offered in Review folder.','Tato složka ve schránce neexistuje. Vyberte některou ze složek nabídnutých u pole Složka ke kontrole.'],
+ 'Mail server did not return its folder list':['The mail server did not return a folder list. Enter the folder name manually.','Poštovní server nevrátil seznam složek. Zadejte název složky ručně.'],
+ 'Unknown mailbox setting':['The request contains an unsupported mailbox field. Reload the application.','Požadavek obsahuje nepodporované pole schránky. Obnovte aplikaci.'],
+ 'Invalid mailbox setting':['A mailbox field has an invalid type. Reload the application.','Pole schránky má neplatný typ. Obnovte aplikaci.'],
  'Unauthorized request':['Session expired. Open the current private URL from the terminal.','Relace vypršela. Otevřete aktuální soukromou adresu z terminálu.'],
  'Finish or cancel waiting queue items before changing mailbox scope':['Finish or cancel waiting queue items in Mailbox monitoring before changing the mailbox or date range.','Před změnou schránky nebo časového rozsahu dokončete nebo zrušte čekající položky ve Sledování schránky.'],
  'Configure a real AI model first':['Configure an AI connection in Settings.','Nastavte připojení AI v Nastavení.'],
@@ -140,3 +148,133 @@ notice=function(value){baseNotice(userErrors[value]?.[lang==='cs'?1:0]||value);}
 const importLabel=$('file').closest('label');importLabel.tabIndex=0;importLabel.setAttribute('role','button');importLabel.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click();}};
 
 $('sourceDocument').addEventListener('input',()=>{sourcesDirty=true;markDirty();});
+
+let mailboxVerified=false;
+function mailboxDraft(){const f=$('settings').elements,d={imap_host:f.imap_host.value.trim(),imap_user:f.imap_user.value.trim(),imap_auth:f.imap_auth.value,imap_password:f.imap_password.value};const field=f.imap_port,port=field?Number(field.value):0;if(Number.isInteger(port)&&port>0)d.imap_port=port;return d;}
+function presetSlug(value){return value.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^[-_]+|[-_]+$/g,'').slice(0,64);}
+function renderFolderOptions(folders){
+ for(const name of ['imap_folder','quarantine_folder']){
+  const select=$('settings').elements[name];
+  if(!select)continue;
+  const current=select.value||(settingsSnapshot&&settingsSnapshot[name])||'';
+  // Before verification the saved folder is the only option, so loading settings cannot lose it.
+  const list=folders?folders.slice():(current?[current]:[]);
+  const keep=list.includes(current);
+  const options=[];
+  if(!keep){const placeholder=node('option',t('chooseFolder'));placeholder.value='';options.push(placeholder);}
+  for(const folder of list){const option=node('option',folder);option.value=folder;options.push(option);}
+  select.replaceChildren(...options);
+  select.value=keep?current:'';
+ }
+}
+function setMailboxVerified(ok){mailboxVerified=ok;$('presetName').disabled=!ok;$('savePreset').disabled=!ok;if(!ok){$('mailboxStatus').textContent='';$('presetSaveStatus').textContent='';}}
+setMailboxVerified(false);
+$('verifyMailbox').onclick=()=>safe(async()=>{
+ const draft=mailboxDraft();
+ if(!draft.imap_host||!draft.imap_user)throw Error('Configure mailbox connection and credentials first');
+ $('verifyMailbox').disabled=true;$('mailboxStatus').textContent=t('verifyingMailbox');
+ try{
+  const result=await api('folders',draft);
+  // Folder names come from the mail server: untrusted text, set as option text and never as markup.
+  renderFolderOptions(result.folders);
+  $('folderStatus').textContent=result.folders.length?t('foldersLoaded')+' '+result.folders.length:t('noFolders');
+  setMailboxVerified(true);
+  $('mailboxStatus').textContent=t('mailboxVerified');
+  if(!$('presetName').value)$('presetName').value=presetSlug(draft.imap_user||draft.imap_host);
+ }catch(error){
+  setMailboxVerified(false);$('folderStatus').textContent=t('foldersUnavailable');throw error;
+ }finally{$('verifyMailbox').disabled=false;}
+});
+for(const name of ['imap_host','imap_user','imap_password','imap_auth']){
+ const field=$('settings').elements[name];
+ // Changed credentials invalidate the verification that unlocked saving.
+ if(field)field.addEventListener('input',()=>{if(mailboxVerified)setMailboxVerified(false);});
+}
+$('savePreset').onclick=()=>safe(async()=>{
+ const name=presetSlug($('presetName').value.trim());
+ if(!name)throw Error(t('presetNeedsName'));
+ $('presetName').value=name;
+ const exists=(await api('presets')).presets.some(preset=>preset.id===name);
+ if(exists&&!confirm(t('presetOverwrite')))return;
+ const password=$('settings').elements.imap_password.value;
+ $('savePreset').disabled=true;$('presetSaveStatus').textContent=t('savingPreset');
+ try{
+  // A preset must describe settings that are actually applied, so the form is saved first.
+  await saveData(collectSettings());
+  await api('presets/save',{name:name,overwrite:exists,imap_password:password});
+  await loadPresets();
+  $('savedPreset').value=name;
+  $('presetSaveStatus').textContent=t('presetSaved');
+ }catch(error){$('presetSaveStatus').textContent=t('presetSaveFailed');throw error;}
+ finally{$('savePreset').disabled=!mailboxVerified;}
+});
+const settingsWithFolders=loadSettings;
+loadSettings=async function(){await settingsWithFolders();renderFolderOptions(null);};
+
+let reviewFolders=[],reviewFolder=null,mailboxBusy=false;
+function setMailboxBusy(on,label){
+ mailboxBusy=on;
+ $('messagesBusy').hidden=!on;
+ if(label)$('messagesBusy').textContent=label;
+ $('imap').disabled=on;$('refreshFolders').disabled=on;
+ for(const button of $('folderList').children)button.disabled=on;
+}
+function renderReviewFolders(){
+ const box=$('folderList');box.replaceChildren();
+ for(const name of reviewFolders){
+  // Folder names are mail-server text: set as button text, never as markup.
+  const button=node('button',name,name===reviewFolder?'active':undefined);
+  button.type='button';button.disabled=mailboxBusy;
+  button.onclick=()=>safe(()=>openFolder(name));
+  box.append(button);
+ }
+}
+async function openFolder(name){
+ if(mailboxBusy)return;
+ setMailboxBusy(true,t('loadingMessages'));
+ try{
+  const result=await api('imap',name?{folder:name}:{});
+  reviewFolder=result.folder;
+  $('sourceFilter').value='own';
+  await refresh();
+  notice(t('loaded')+' '+result.count);
+ }finally{setMailboxBusy(false);renderReviewFolders();}
+}
+async function loadReviewFolders(){
+ $('folderPaneStatus').textContent=t('loadingFolders');
+ try{
+  reviewFolders=(await api('folders',{})).folders;
+  $('folderPaneStatus').textContent=reviewFolders.length?'':t('noFolders');
+ }catch(error){reviewFolders=[];$('folderPaneStatus').textContent=t('foldersUnavailable');}
+ renderReviewFolders();
+}
+$('refreshFolders').onclick=()=>safe(loadReviewFolders);
+$('imap').onclick=()=>safe(()=>openFolder(reviewFolder));
+const viewWithFolders=showView;
+showView=function(view,load=true,updateUrl=true){
+ viewWithFolders(view,load,updateUrl);
+ // The folder list needs saved mailbox credentials, so it is fetched when the view is first opened.
+ if(view==='review'&&load&&!reviewFolders.length&&settingsSnapshot&&settingsSnapshot.imap_host){
+  if(!reviewFolder)reviewFolder=settingsSnapshot.imap_folder||null;
+  safe(loadReviewFolders);
+ }
+};
+const settingsWithReviewFolders=loadSettings;
+loadSettings=async function(){
+ await settingsWithReviewFolders();
+ if(!reviewFolder&&settingsSnapshot)reviewFolder=settingsSnapshot.imap_folder||null;
+ // The first render happens before settings exist, so the initial folder load is triggered here.
+ if(currentView==='review'&&!reviewFolders.length&&settingsSnapshot&&settingsSnapshot.imap_host)safe(loadReviewFolders);
+};
+toolLabel=function(name){
+ const row=checkCatalog.find(entry=>entry.name===name);
+ const title=row&&(row.title[lang]||row.title.en);
+ return title?title+' ('+name+')':name;
+};
+toolNote=function(ev){
+ if(ev.status==='denied')return t(ev.observation&&ev.observation.reason||'tool_denied');
+ const check=ev.observation&&ev.observation._check;
+ if(check&&check.blockers&&check.blockers.length)return check.blockers.join(' ');
+ if(check&&check.available===false)return t('toolNoReference');
+ return t('toolCompleted');
+};

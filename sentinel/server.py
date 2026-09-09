@@ -54,6 +54,23 @@ class ConnectionDraft:
         return getattr(self.config,name)
 
 
+class MailboxDraft:
+    def __init__(self, config, data):
+        permitted={"imap_host","imap_user","imap_port","imap_auth","imap_password"}
+        if set(data)-permitted:
+            raise ValueError("Unknown mailbox setting")
+        values={k:v for k,v in data.items() if k!='imap_password'}
+        for key,value in values.items():
+            if type(value) is not type(getattr(config,key)):
+                raise ValueError("Invalid mailbox setting")
+        self.config=dataclasses.replace(config,**values).validate()
+        same=(self.config.imap_host,self.config.imap_user,self.config.imap_port)==(config.imap_host,config.imap_user,config.imap_port)
+        # An unsaved form supplies its own password; an unchanged mailbox may reuse the running one.
+        self.password=data.get('imap_password') or (os.environ.get(config.imap_password_env,'') if same else '')
+        if not isinstance(self.password,str) or len(self.password)>4000:
+            raise ValueError("Invalid credential")
+
+
 class Application:
     def __init__(self, config):
         self.config = config
@@ -279,6 +296,20 @@ def _serve(config, port, config_path):
                     return self.send({'error':'Message not found'},404)
                 if path == "/api/models":
                     return self.send({"models":Provider(ConnectionDraft(config,data)).models()})
+                if path == "/api/presets/save":
+                    if set(data) - {"name", "imap_password", "overwrite"}:
+                        raise ValueError("Unknown preset field")
+                    if not isinstance(data.get("name"), str) or not isinstance(data.get("overwrite", False), bool):
+                        return self.send({"error": "Invalid request fields"}, 400)
+                    from .presets import save_preset
+                    # The verified password in this process is what makes the preset restore without retyping.
+                    secret = data.get("imap_password") or os.environ.get(config.imap_password_env) or None
+                    return self.send({"preset": save_preset(config_path, data["name"], config, EDITABLE_SETTINGS, secret, data.get("overwrite", False))})
+                if path == "/api/folders":
+                    if app.busy:
+                        raise ValueError("Wait for the active investigation")
+                    draft=MailboxDraft(config,data)
+                    return self.send({"folders":Mailbox(draft.config).folders(password=draft.password)})
                 if path == "/api/cancel":
                     with app.lock:
                         job=app.jobs.get(data['job_id'])
@@ -413,11 +444,17 @@ def _serve(config, port, config_path):
                 if path == "/api/imap":
                     if app.busy:
                         raise ValueError("Wait for the active investigation")
-                    msgs = Mailbox(config).fetch()
+                    scope = config
+                    if data.get("folder") is not None:
+                        if not isinstance(data["folder"], str):
+                            return self.send({"error": "Invalid request fields"}, 400)
+                        # Config validation is what keeps a browsed folder name out of the IMAP command.
+                        scope = dataclasses.replace(config, imap_folder=data["folder"]).validate()
+                    msgs = Mailbox(scope).fetch()
                     with app.lock:
                         app.messages = {k: v for k, v in app.messages.items() if v["source"] == "demo"}
                         app.messages.update({m["id"]: m for m in msgs})
-                    return self.send({"count": len(msgs)})
+                    return self.send({"count": len(msgs), "folder": scope.imap_folder})
                 if path == "/api/remove-message":
                     with app.lock:
                         if app.busy: raise ValueError("Wait for the active investigation")

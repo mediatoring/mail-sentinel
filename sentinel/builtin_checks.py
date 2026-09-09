@@ -8,6 +8,7 @@ from .tools import Tool, schema
 
 class Checks:
     def __init__(self,registry):
+        self.registry=registry
         self.message,self.org,self.privacy,self.c=registry.message,registry.org,registry.privacy,registry.c
 
     def injection(self):
@@ -15,7 +16,11 @@ class Checks:
         return inspect_injection(self.message,self.c.privacy_mode)
 
     def inspect(self):
-        return self.privacy.message(self.message, self.c.privacy_mode)
+        # Real email bodies are far larger than one tool response may carry; a denied required check helps nobody.
+        result = self.privacy.message(self.message, self.c.privacy_mode, limit=18000)
+        if result.get("body_truncated") and not self.message.get("body_truncated"):
+            self.registry.inspection_truncated = True
+        return result
 
     def sender(self):
         address = self.message["sender_address"]

@@ -104,7 +104,8 @@ class Agent:
                     output = self.registry.execute(name, arguments)
                     status = "ok"
                 except (PermissionError, ValueError, TypeError, KeyError) as e:
-                    output, status = {"error": type(e).__name__, "message": "Tool unavailable, invalid arguments or response rejected."}, "denied"
+                    from .tools import denial_reason
+                    output, status = {"error": type(e).__name__, "reason": denial_reason(e), "message": "Tool unavailable, invalid arguments or response rejected."}, "denied"
                 evidence = self.registry.evidence(f"E{step+1:02}", name, arguments, status, output)
                 context["evidence"].append(evidence)
                 if name == 'inspect_message' and status == 'ok':

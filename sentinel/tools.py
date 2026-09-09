@@ -97,6 +97,7 @@ class Registry:
         if len(display_name) >= 3:
             self.privacy.terms = sorted(set(self.privacy.terms + [display_name]), key=len, reverse=True)
         self.tools, self.catalog = {}, {}
+        self.inspection_truncated = False
         self.provenance=[]
         for module in ["sentinel.builtin_checks", *config.plugins]:
             loaded=importlib.import_module(module)
@@ -138,7 +139,7 @@ class Registry:
         if set(flattened)!=expected or len(flattened)!=len(expected) or not reason.strip():
             raise ValueError("Classify each conditional check exactly once and explain the assessment")
         # The model cannot waive a semantic check without access to message text.
-        if not_applicable and (self.c.privacy_mode=="evidence_only" or self.message.get("body_truncated") or self.message.get("body_unavailable")):
+        if not_applicable and (self.c.privacy_mode=="evidence_only" or self.inspection_truncated or self.message.get("body_truncated") or self.message.get("body_unavailable")):
             uncertain=uncertain+not_applicable;not_applicable=[]
         return {"applicable":applicable,"not_applicable":not_applicable,"uncertain":uncertain,"reason":reason,
                 "assessment_source":"model","independently_verified":False}
@@ -172,6 +173,28 @@ class Registry:
         """Preserve the host envelope around already protected tool output."""
         return {'id':ident, 'tool':name if name in self.catalog else self.privacy.text(name),
                 'arguments':self.privacy.protect(arguments), 'status':status, 'observation':output}
+
+
+SAFE_DENIALS = {
+    'Tool response exceeds limit': 'response_too_large',
+    'Tool is not registered or permitted': 'tool_not_permitted',
+    'Tool must return an object': 'invalid_tool_response',
+    'Invalid plugin blockers': 'invalid_tool_response',
+    'Invalid tool arguments': 'invalid_arguments',
+    'Invalid tool argument type': 'invalid_arguments',
+    'Invalid tool argument value': 'invalid_arguments',
+    'Invalid tool argument number': 'invalid_arguments',
+    'Invalid tool argument list': 'invalid_arguments',
+    'Tool argument too long': 'invalid_arguments',
+    'Tool arguments nested too deeply': 'invalid_arguments',
+    'Tool arguments exceed total size limit': 'invalid_arguments',
+    'Classify each conditional check exactly once and explain the assessment': 'invalid_arguments',
+}
+
+
+def denial_reason(error):
+    """Only messages this project raises itself may describe a denial; anything else stays opaque."""
+    return SAFE_DENIALS.get(str(error), 'tool_denied')
 
 
 def validate_arguments(args, spec):

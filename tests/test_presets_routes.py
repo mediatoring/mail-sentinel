@@ -6,6 +6,7 @@ from pathlib import Path
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 from sentinel.config import encode_toml
 import test_ux_logic
 
@@ -106,3 +107,93 @@ class PresetHTTPTests(unittest.TestCase):
                 self.assertNotIn('private-user-marker',response.read().decode())
         for path in ['settings/unknown','.local-presets/test-local.toml']:
             with self.assertRaises(urllib.error.HTTPError):opener.open(base+path)
+
+
+class PresetSaveTests(unittest.TestCase):
+    """Writing a preset is a credential boundary: names are constrained and the secret stays out of TOML and HTTP."""
+    setUp = test_ux_logic.HTTPUXTests.setUp
+    stop = test_ux_logic.HTTPUXTests.stop
+    api = test_ux_logic.HTTPUXTests.api
+
+    def directory(self):
+        return Path(self.tmp.name)/'.local-presets'
+
+    def rejected(self, path, data, code=400):
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.api(path, data)
+        self.assertEqual(error.exception.code, code)
+        return error.exception.read().decode()
+
+    def test_password_stays_out_of_toml_and_out_of_the_response(self):
+        response = self.api('presets/save', {'name':'my-mailbox','imap_password':'synthetic-secret-only'})
+        self.assertEqual(response['preset'], {'id':'my-mailbox','name':'my mailbox','password_stored':True})
+        self.assertNotIn('synthetic-secret-only', json.dumps(response))
+        root = self.directory()
+        self.assertNotIn('synthetic-secret-only', (root/'my-mailbox.toml').read_text('utf-8'))
+        self.assertEqual(json.loads((root/'my-mailbox.credentials.json').read_text('utf-8')), {'imap_password_file':'my-mailbox.secret'})
+        self.assertEqual((root/'my-mailbox.secret').read_text('utf-8').strip(), 'synthetic-secret-only')
+        for name in ('my-mailbox.toml','my-mailbox.secret','my-mailbox.credentials.json'):
+            self.assertEqual(oct((root/name).stat().st_mode & 0o777), '0o600', name)
+
+    def test_saved_preset_restores_the_settings_it_captured(self):
+        with patch.dict('os.environ', {'SENTINEL_IMAP_PASSWORD':''}):
+            self.api('settings', {'model':'captured-model'})
+            self.api('presets/save', {'name':'captured'})
+            self.api('settings', {'model':'changed-model'})
+            self.assertEqual(self.config.model, 'changed-model')
+            self.api('presets/load', {'id':'captured'})
+        self.assertEqual(self.config.model, 'captured-model')
+        self.assertFalse((self.directory()/'captured.credentials.json').exists())
+
+    def test_names_that_would_leave_the_preset_directory_are_refused(self):
+        with patch.dict('os.environ', {'SENTINEL_IMAP_PASSWORD':''}):
+            for name in ['../escape', 'sub/dir', '', '.hidden', 'a'*65, 'has space', '-leading']:
+                with self.subTest(name=name):
+                    self.rejected('presets/save', {'name':name})
+        self.assertEqual(sorted(p.name for p in self.directory().glob('*')) if self.directory().exists() else [], [])
+
+    def test_existing_preset_is_not_overwritten_unless_asked(self):
+        with patch.dict('os.environ', {'SENTINEL_IMAP_PASSWORD':''}):
+            self.api('presets/save', {'name':'twice'})
+            self.rejected('presets/save', {'name':'twice'})
+            self.assertEqual(self.api('presets/save', {'name':'twice','overwrite':True})['preset']['id'], 'twice')
+
+    def test_unknown_or_mistyped_preset_fields_are_refused(self):
+        with patch.dict('os.environ', {'SENTINEL_IMAP_PASSWORD':''}):
+            self.rejected('presets/save', {'name':'x','data_dir':'/tmp'})
+            self.rejected('presets/save', {'name':'x','overwrite':'yes'})
+            self.rejected('presets/save', {'name':123})
+
+
+class FolderBrowsingTests(unittest.TestCase):
+    """A folder chosen in the review view reaches an IMAP SELECT, so it passes configuration validation first."""
+    setUp = test_ux_logic.HTTPUXTests.setUp
+    stop = test_ux_logic.HTTPUXTests.stop
+    api = test_ux_logic.HTTPUXTests.api
+
+    def rejected(self, data, code=400):
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.api('imap', data)
+        self.assertEqual(error.exception.code, code)
+
+    def test_folder_names_that_could_break_out_of_the_command_are_refused(self):
+        with patch('sentinel.server.Mailbox') as mailbox:
+            for folder in ['', 'has"quote', 'back\\slash', 'line\nbreak', 'null\x00byte']:
+                with self.subTest(folder=folder):
+                    self.rejected({'folder': folder})
+            self.rejected({'folder': 993})
+            mailbox.assert_not_called()
+
+    def test_a_chosen_folder_is_used_without_changing_saved_settings(self):
+        with patch('sentinel.server.Mailbox') as mailbox:
+            mailbox.return_value.fetch.return_value = []
+            result = self.api('imap', {'folder': 'INBOX.Archive'})
+        self.assertEqual(result, {'count': 0, 'folder': 'INBOX.Archive'})
+        self.assertEqual(mailbox.call_args.args[0].imap_folder, 'INBOX.Archive')
+        self.assertEqual(self.config.imap_folder, 'AI-review')
+
+    def test_omitted_folder_keeps_the_configured_one(self):
+        with patch('sentinel.server.Mailbox') as mailbox:
+            mailbox.return_value.fetch.return_value = []
+            self.assertEqual(self.api('imap', {})['folder'], 'AI-review')
+        self.assertEqual(mailbox.call_args.args[0].imap_folder, 'AI-review')

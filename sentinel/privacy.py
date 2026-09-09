@@ -46,9 +46,25 @@ class Privacy:
             return {self.text(k): self.protect(v) for k, v in obj.items()}
         return obj
 
-    def message(self, msg, mode):
+    def fit(self, result, limit):
+        """Shrink a protected body until the result fits its transport limit, and say that it was shortened."""
+        body = result.get("body")
+        if not isinstance(body, str):
+            return result
+        while body and len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > limit:
+            keep = int(len(body) * 0.8)
+            # A pseudonymization token is an opaque reference; never cut one in half.
+            opened = body.rfind("[", 0, keep)
+            if opened > body.rfind("]", 0, keep):
+                keep = opened
+            body = body[:max(0, keep)]
+            result = {**result, "body": body, "body_truncated": True}
+        return result
+
+    def message(self, msg, mode, limit=None):
         if mode == "redacted_text":
-            return {k: self.protect(v) for k, v in msg.items() if k not in {"imap_ref", "id"}}
+            result = {k: self.protect(v) for k, v in msg.items() if k not in {"imap_ref", "id"}}
+            return self.fit(result, limit) if limit else result
         return {"source": msg["source"], "attachment_count": len(msg["attachments"]),
                 "url_count": len(msg["urls"]), "body_truncated": msg.get("body_truncated", False),
                 "body_unavailable": msg.get("body_unavailable", False),

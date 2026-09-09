@@ -1,4 +1,5 @@
 """Bounded MIME parsing and read-only, UID-based IMAP ingestion."""
+import base64
 import hashlib
 import imaplib
 import json
@@ -71,12 +72,59 @@ def parse_email(raw, max_bytes=1_000_000):
             "source": "file"}
 
 
+def list_folder_name(line):
+    """Last token of an IMAP LIST line: a quoted string or a bare atom. None if unparsable."""
+    line = line.rstrip()
+    if not line.startswith(b"(") or b")" not in line:
+        return None
+    if not line.endswith(b'"'):
+        atom = line.rsplit(None, 1)[-1] if len(line.rsplit(None, 1)) == 2 else b""
+        return atom.decode("ascii", "replace") if atom and not atom.endswith(b")") else None
+    index = len(line) - 1
+    while index > 0:
+        index -= 1
+        if line[index:index+1] != b'"':
+            continue
+        backslashes = 0
+        probe = index - 1
+        while probe >= 0 and line[probe:probe+1] == b"\\":
+            backslashes += 1
+            probe -= 1
+        if backslashes % 2 == 0:
+            body = line[index+1:-1]
+            return body.replace(b'\\"', b'"').replace(b"\\\\", b"\\").decode("ascii", "replace")
+    return None
+
+
+def decode_folder(name):
+    """IMAP modified UTF-7 (RFC 3501 5.1.3). An undecodable name is shown exactly as received."""
+    out, index = [], 0
+    while index < len(name):
+        if name[index] != "&":
+            out.append(name[index])
+            index += 1
+            continue
+        end = name.find("-", index)
+        if end < 0:
+            return name
+        chunk = name[index+1:end]
+        if not chunk:
+            out.append("&")
+        else:
+            try:
+                out.append(base64.b64decode(chunk.replace(",", "/") + "==="[:-len(chunk) % 4]).decode("utf-16-be"))
+            except (ValueError, UnicodeDecodeError):
+                return name
+        index = end + 1
+    return "".join(out)
+
+
 class Mailbox:
     def __init__(self, config):
         self.c = config
 
     @contextmanager
-    def connect(self, readonly=True, password=None):
+    def connect(self, readonly=True, password=None, select=True):
         if not self.c.imap_host or not self.c.imap_user:
             raise ValueError("Configure IMAP host, user and password environment variable")
         client = imaplib.IMAP4_SSL(self.c.imap_host, self.c.imap_port, ssl_context=ssl.create_default_context(), timeout=self.c.timeout)
@@ -89,9 +137,10 @@ class Mailbox:
                 client.authenticate("XOAUTH2", lambda challenge: auth if not challenge else b"")
             else:
                 client.login(self.c.imap_user, os.environ[self.c.imap_password_env] if password is None else password)
-            typ, _ = client.select('"' + self.c.imap_folder + '"', readonly=readonly)
-            if typ != "OK":
-                raise ValueError("Configured IMAP folder does not exist")
+            if select:
+                typ, _ = client.select('"' + self.c.imap_folder + '"', readonly=readonly)
+                if typ != "OK":
+                    raise ValueError("Configured IMAP folder does not exist")
             yield client
         finally:
             try:
@@ -104,6 +153,21 @@ class Mailbox:
         if not response or not response[0]:
             raise ValueError("Server did not provide UIDVALIDITY")
         return response[0].decode("ascii")
+
+    def folders(self, password=None, limit=500):
+        """Folder names offered by the mail server. Untrusted display data, never a local path."""
+        with self.connect(password=password, select=False) as client:
+            typ, lines = client.list()
+        if typ != "OK":
+            raise ValueError("Mail server did not return its folder list")
+        names = set()
+        for line in lines:
+            if not isinstance(line, bytes):
+                continue
+            text = list_folder_name(line)
+            if text and text.upper() != "NIL":
+                names.add(decode_folder(text))
+        return sorted(names)[:limit]
 
     def fetch(self):
         messages = []

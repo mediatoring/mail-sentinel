@@ -1,10 +1,12 @@
 """Administrator-owned local presets; credentials never enter HTTP responses."""
 import dataclasses
 import json
+import os
 from pathlib import Path
 import re
+import tempfile
 import tomllib
-from .config import Config
+from .config import Config, encode_toml
 
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}')
 
@@ -69,3 +71,38 @@ def load_preset(config_path, ident, current, editable):
     except Exception:
         # File names, TOML values and credential contents stay on the host.
         raise ValueError('Local preset could not be loaded; check its files and startup settings') from None
+
+
+def write_private(path, text):
+    """Replace a private file atomically; the secret never exists world-readable."""
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', dir=path.parent, delete=False) as handle:
+        handle.write(text)
+        pending = Path(handle.name)
+    try:
+        os.chmod(pending, 0o600)
+        os.replace(pending, path)
+    except BaseException:
+        pending.unlink(missing_ok=True)
+        raise
+
+
+def save_preset(config_path, name, config, editable, password=None, overwrite=False):
+    """Snapshot the running configuration as a local preset. Credentials go to their own file, never into TOML."""
+    if not isinstance(name, str) or not IDENTIFIER.fullmatch(name):
+        raise ValueError('Invalid local preset identifier')
+    if password is not None and (not isinstance(password, str) or not password or len(password) > 4000):
+        raise ValueError('Invalid credential')
+    root = directory(config_path)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    target = root / (name + '.toml')
+    if target.parent.resolve() != root.resolve():
+        raise ValueError('Invalid local preset file')
+    if target.exists() and not overwrite:
+        raise ValueError('A local preset with this name already exists')
+    values = dataclasses.asdict(config)
+    body = '\n'.join(key + ' = ' + encode_toml(values[key]) for key in editable if key in values)
+    write_private(target, '# Local preset written by Mail Sentinel. Passwords are stored separately.\n' + body + '\n')
+    if password:
+        write_private(root / (name + '.secret'), password + '\n')
+        write_private(root / (name + '.credentials.json'), json.dumps({'imap_password_file': name + '.secret'}) + '\n')
+    return {'id': name, 'name': name.replace('-', ' '), 'password_stored': bool(password)}
