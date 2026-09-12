@@ -21,3 +21,4 @@ node_modules/
 work/
 *-evaluation.json
 !examples/data-sources.sqlite.json
+reviewed-cases*.json

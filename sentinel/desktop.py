@@ -52,7 +52,11 @@ def open_app(config, config_path, port=8765):
     if not url:
         # Fail before launching a child whose diagnostic would only reach desktop.log.
         with socket.socket() as probe:
-            probe.bind(('127.0.0.1', port))
+            try:
+                probe.bind(('127.0.0.1', port))
+            except OSError as exc:
+                exc.sentinel_bind_port = port
+                raise
         root = Path(config.data_dir)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         fd = os.open(root/'desktop.log', os.O_WRONLY|os.O_CREAT|os.O_APPEND, 0o600)

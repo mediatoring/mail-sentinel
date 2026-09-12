@@ -30,7 +30,12 @@ class LocalHTTPServer(ThreadingHTTPServer):
     """Loopback service startup must not depend on reverse DNS availability."""
     def server_bind(self):
         from socketserver import TCPServer
-        TCPServer.server_bind(self)
+        try:
+            TCPServer.server_bind(self)
+        except OSError as exc:
+            # Windows may report WSAEACCES for an occupied/reserved port.
+            exc.sentinel_bind_port = self.server_address[1]
+            raise
         self.server_name = "localhost"
         self.server_port = self.server_address[1]
 

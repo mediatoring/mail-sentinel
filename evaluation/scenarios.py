@@ -22,4 +22,3 @@ def attack_scenarios():
         items.append((name, {'message':msg, 'organization':org,
                     'expected':'matching_invoice' if index == 0 else 'changed_account', 'target':target}))
     return items
-

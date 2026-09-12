@@ -38,7 +38,7 @@ def load_preset(config_path, ident, current, editable):
         values = dataclasses.asdict(current)
         if set(supplied) - set(values):
             raise ValueError('Unknown preset setting')
-        for key in ('data_dir','skills_dir','organization_file','data_sources_file'):
+        for key in ('data_dir','skills_dir','organization_file','data_sources_file','reviewed_cases_file'):
             if key in supplied and supplied[key]:
                 supplied[key] = str((root / supplied[key]).resolve())
         values.update(supplied)
