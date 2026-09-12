@@ -54,7 +54,9 @@ separate: `coverage`, `checks_complete`, and `requires_human_review` describe th
 scope alongside the verdict. Missing references do not make an email malicious.
 
 Every finish includes `claims`: statement, supporting evidence IDs, counter-
-evidence IDs, and limitations. Non-abstaining reports require at least one claim.
+evidence IDs, and limitations. Every finish request requires at least one claim,
+including an observed fact when abstaining. If the host downgrades an unsafe
+LOW_RISK verdict, it clears the original claims along with the reassuring text.
 The host validates all references; this does not prove semantic entailment.
 Reviewers can inspect claims in the UI. A model that repeats an identical call
 more than twice stops with no final verdict. Fixed tool errors remain safe to

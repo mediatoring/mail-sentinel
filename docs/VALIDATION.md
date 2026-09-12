@@ -1,9 +1,9 @@
 # Validation record — 1.0.0rc2
 
 
-## Automated verification — 2026-09-12
+## Automated verification — 2026-09-13
 
-- Python 3.13.4 on macOS: **188 tests passed, zero skipped**, with the optional AgentDojo dependency installed.
+- Python 3.13.4 on macOS: **189 tests passed, zero skipped**, with the optional AgentDojo dependency installed.
 - Native AgentDojo adapter fixture check: six fixtures validated, no inference in that check.
 - JavaScript syntax and DOM integration passed, including successful AI saves, genuinely unsaved mailbox edits, Czech status refresh and session recovery.
 - Wheel build and clean offline installation passed: bundled assets, authenticated HTTP, SIGTERM, restart and backup outside the source checkout.
@@ -14,6 +14,59 @@
 `python -m evaluation.full_eval --config sentinel.toml` selects all **28** cases by default: five demos, nine multilingual applicability cases, six adversarial/baseline fixtures in each privacy mode, and two multi-page policy cases. `--list` prints the full selection; `--case` intentionally narrows it; `--repeat N` repeats the selected set.
 
 The output records planned cases, repetitions, per-case reports/latency, source hash and separate completion, guard, expectation and abstention metrics. Every case runs even after another fails. `completed: true` means the whole selected run ended, not that every expected finding was correct. Exit code 1 means a guard or expectation failed. INCONCLUSIVE is never counted as successful attack recognition. Detailed results remain local and ignored by Git.
+
+### Release run — 2026-09-13
+
+The complete default selection ran once against real LM Studio inference with
+`openai/gpt-oss-20b`, automatic checks enabled and specialists disabled. Profile:
+32,768 context tokens, 4,096 maximum output tokens, 20 model calls per case,
+120-second request timeout and a 600-second case limit. Total case latency was
+730.73 seconds. All 28 planned cases ran; no failing case was omitted or replaced.
+
+| Metric | Result |
+| --- | ---: |
+| Completed reports | 28 / 28 |
+| Evaluation guard checks passed | 28 / 28 |
+| Scenario expectations met | 18 / 28 |
+| INCONCLUSIVE verdicts | 16 / 28 |
+| All required checks complete | 22 / 28 |
+
+| Scenario family | Expectations met |
+| --- | ---: |
+| Five demos | 1 / 5 |
+| Multilingual applicability | 9 / 9 |
+| Adversarial/baseline, evidence only | 3 / 6 |
+| Adversarial/baseline, redacted text | 3 / 6 |
+| Policy pagination (6 and 11 entries) | 2 / 2 |
+
+The ten expectation misses were abstentions: demos 2–5; mismatch, policy override
+and attachment instruction in evidence-only mode; English/Czech body override
+and policy override in redacted-text mode. Six further abstentions were payment
+applicability cases with missing payment references: identifying the need for a
+payment check correctly met those cases' expectations, but did not establish a
+conclusive risk verdict. All three greeting cases completed successfully.
+
+No attack case received LOW_RISK. This narrow guard metric is not attack-detection
+accuracy: abstention passes it, whereas successful attack recognition requires
+SUSPICIOUS or HIGH_RISK. The evaluator correctly exited with status 1 because
+ten expectations failed. These results demonstrate full-suite execution and
+host controls, and expose remaining model-quality limitations.
+
+The tested Python source matches commit `ff8fc14`; the SHA-256 of sorted
+`sentinel/*.py` contents is
+`a6ee4d3b4601fef36f6ca7198eed423c5498e29f2e2ed974476bacee0dfedaf1`.
+[CI for that implementation](https://github.com/mediatoring/mail-sentinel/actions/runs/34721556731)
+passed all 11 jobs, including Windows/macOS/Linux on Python 3.11–3.13, frontend
+and the complete optional-adapter suite. Subsequent release edits document these
+results and correct the bundled SQLite example.
+
+A separate real-model delegation smoke test invoked each specialist with protected
+baseline evidence: payments completed in 3 calls (SUSPICIOUS), manipulation in
+3 (SUSPICIOUS), policy in 2 (INCONCLUSIVE), and critic in 2 (SUSPICIOUS). All four
+returned structured reports within their four-call child limits and charged the
+parent budget. This verifies direct delegation against the provider; it does
+not measure whether a parent model chooses delegation well or whether delegation
+improves accuracy across the complete suite.
 
 For all offline tests including optional adapter tests:
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0rc2 — 2026-09-12
+## 1.0.0rc2 — 2026-09-13
 
 - Host preflight for required built-in checks; explicit case progress and repairable completion rejection for all conclusive verdicts.
 - Complete policy pagination, supporting/counter-evidence claims, explicit coverage and human-review state, bounded repeated calls.

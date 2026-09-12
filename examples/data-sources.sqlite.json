@@ -4,7 +4,7 @@
     {
       "id": "case_records",
       "driver": "sqlite",
-      "schema_notes": "approved_case_evidence(case_code TEXT, disclosure_approved BOOLEAN) is an administrator-approved evidence view.",
+      "schema_notes": "cases(case_code TEXT, disclosure_approved INTEGER 0 or 1) contains synthetic case approval evidence from case-schema.sql.",
       "timeout_seconds": 5,
       "max_rows": 10,
       "queries": [
@@ -15,7 +15,7 @@
             "cs": "Schválení zpřístupnění případu"
           },
           "description": "Look up the case code in the approved evidence view and verify whether disclosure is approved.",
-          "sql": "SELECT case_code, disclosure_approved FROM approved_case_evidence WHERE case_code = :case_code",
+          "sql": "SELECT case_code, disclosure_approved FROM cases WHERE case_code = :case_code",
           "parameters": {
             "case_code": {
               "type": "string",
@@ -32,7 +32,7 @@
       ],
       "path": "case-records.sqlite3",
       "tables": [
-        "approved_case_evidence"
+        "cases"
       ]
     }
   ]
