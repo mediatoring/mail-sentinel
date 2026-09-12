@@ -14,7 +14,7 @@ This initial release is a local single-user review assistant for controlled pilo
 - Browser output uses textContent; a restrictive CSP blocks inline scripts and external resources. No message HTML is rendered.
 - Redirects and ambient HTTP proxies are disabled in the model transport. Local endpoints must use a loopback host.
 - Outbound initial content, observations and persisted model reports go through the privacy layer.
-- LOW_RISK completion is downgraded when required checks are absent, conditional checks remain unresolved, or plugin evidence contains blockers. These narrow rules do not verify the truth of the narrative.
+- Non-INCONCLUSIVE completion is rejected while required checks remain obtainable, including unread policy pages. LOW_RISK is additionally downgraded for unavailable or truncated evidence and plugin blockers. Claim references are validated, not their semantic truth. Explicit INCONCLUSIVE handoff remains possible.
 - Failure has no safe verdict fallback. Model call and output sizes and iteration count are bounded.
 
 ## Limits to understand
@@ -39,7 +39,7 @@ Do not post credentials, real email or exploit payloads containing sensitive dat
 
 Queue references, leases, retry state and cursors are persistent; bodies are fetched per worker. Cancelled or superseded claims cannot commit results. Recovery is at-least-once inference and can repeat paid calls after a crash. Rate/call limits are shared in SQLite; per-run budgets include specialists. Blocking administrator plugins can exceed runtime budgets.
 
-Check modes are host enforced and disabled tools are not registered. Prompt-injection pattern matching is a local indicator source, not a complete defense. Runtime skills are trusted local procedures with content hashes. Specialists cannot recurse or perform mailbox actions; they inherit the configured read-only evidence catalog.
+Check modes are host enforced and disabled tools are not registered. Prompt-injection pattern matching is a local indicator source, not a complete defense. Runtime skills are trusted local procedures with content hashes. Specialists cannot recurse or perform mailbox actions; their executable tools are restricted to the selected role intersected with the parent permissions.
 
 The stdio MCP transport exposes one startup-selected message and shares completion validation. It does not constrain other tools or free-text claims available in the external AI client. It has no quarantine operation. Real-message data exposure requires explicit startup authorization.
 
@@ -49,3 +49,5 @@ The stdio MCP transport exposes one startup-selected message and shares completi
 Conditional relevance is a recorded model judgment. Missing/uncertain judgments leave checks required; text withheld or truncated prevents a semantic waiver. Required checks cannot be waived by the model. These controls do not make model classification infallible.
 
 Database queries are administrator-approved templates with bound model-selected parameters. SQLite uses a read-only connection and authorizer. PostgreSQL requires a restricted database role and uses read-only transactions and timeouts. Database functions and Python plugins remain trusted administrator code. Query results pass through pseudonymization and are treated as untrusted evidence. See [data sources](docs/DATA-SOURCES.md).
+
+Short-lived investigation checkpoints contain protected evidence only. Deterministic built-in observations are revalidated before reuse; changes to configuration/evidence invalidate the key. Human-reviewed memory is an administrator-maintained source with reviewer, source and expiry metadata; models have no memory write/approval tool. It never authorizes a payment or waives current checks.

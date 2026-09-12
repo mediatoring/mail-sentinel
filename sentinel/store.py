@@ -28,6 +28,10 @@ class Store:
         self.retention_days = retention_days
         self.lock = threading.RLock()
         self.migrate()
+        # Separate disposable cache: no change to the report/queue migration numbering.
+        with self.db() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS investigation_cache (id TEXT PRIMARY KEY, updated REAL, state TEXT)')
+            db.execute('DELETE FROM investigation_cache WHERE updated<?', (time.time()-900,))
         with self.db() as db:
             self.prune_reports(db, time.time()-retention_days*86400)
         try:
@@ -131,3 +135,17 @@ class Store:
     def prune_reports(self, db, cutoff):
         # Called on startup, interactive saves and queue cleanup alike.
         db.execute('DELETE FROM reports WHERE created<?',(cutoff,))
+
+    def save_investigation(self, key, state):
+        with self.lock, self.db() as db:
+            db.execute('DELETE FROM investigation_cache WHERE updated<?', (time.time()-900,))
+            db.execute('INSERT OR REPLACE INTO investigation_cache VALUES(?,?,?)', (key, time.time(), json.dumps(state)))
+
+    def load_investigation(self, key):
+        with self.db() as db:
+            row = db.execute('SELECT state FROM investigation_cache WHERE id=? AND updated>?', (key, time.time()-900)).fetchone()
+            return json.loads(row[0]) if row else None
+
+    def delete_investigation(self, key):
+        with self.lock, self.db() as db:
+            db.execute('DELETE FROM investigation_cache WHERE id=?', (key,))

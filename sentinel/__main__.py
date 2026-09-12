@@ -1,4 +1,5 @@
 import argparse
+import errno
 import dataclasses
 import getpass
 import json
@@ -186,6 +187,8 @@ def main():
         from .providers import ProviderError
         if isinstance(exc, (ValueError, RuntimeError, ProviderError)):
             message = str(exc)
+        elif exc.errno in {errno.EADDRINUSE, 10048}:
+            message = "Port is already in use / Port je obsazený. Try / Zkuste: python3 -m sentinel serve --port 8766 (Windows: py -3 -m sentinel serve --port 8766)."
         else:
             message = "Local operation failed. Check file permissions, available disk space, network configuration and whether the port is already in use."
         raise SystemExit("Mail Sentinel: " + message) from None

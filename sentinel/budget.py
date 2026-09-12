@@ -43,3 +43,20 @@ class RunBudget:
             self.store.reserve_call(self.c.daily_model_calls)
         self.calls+=1
         self.input_bytes+=size
+
+
+class ChildBudget:
+    """A local call cap backed by the parent's cancellation, time and global accounting."""
+    def __init__(self, parent, limit):
+        self.parent, self.limit, self.calls = parent, limit, 0
+        self.store = None
+
+    def check(self):
+        self.parent.check()
+
+    def consume(self, system, context, definitions):
+        self.check()
+        if self.calls >= self.limit:
+            raise RuntimeError('specialist_budget_exhausted')
+        self.parent.consume(system, context, definitions)
+        self.calls += 1

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mail-sentinel-agent"
-version = "1.0.0rc1"
+version = "1.0.0rc2"
 description = "Local-first, tool-using email investigation agent"
 requires-python = ">=3.11"
 license = {text = "MIT"}

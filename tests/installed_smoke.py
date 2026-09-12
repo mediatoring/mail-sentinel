@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='sentinel-install-') as directory:
     subprocess.run([str(python),'-m','sentinel','export-demo'],check=True,cwd=root,stdout=subprocess.PIPE)
     assert len(list((root/'demo-emails').glob('*.eml')))==5
     check=subprocess.run([str(python),'-m','sentinel','check'],cwd=root,capture_output=True,text=True)
-    assert check.returncode==2 and json.loads(check.stdout)['version']=='1.0.0rc1'
+    assert check.returncode==2 and json.loads(check.stdout)['version']=='1.0.0rc2'
     for attempt in range(2):
         process=subprocess.Popen([str(python),'-m','sentinel','serve','--port','0'],cwd=root,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         try:

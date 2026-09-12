@@ -19,7 +19,7 @@ from .config import encode_toml
 from .tools import Registry, demo_messages, organization, redaction_terms
 
 
-EDITABLE_SETTINGS = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file", "timeout", "imap_port"]
+EDITABLE_SETTINGS = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file", "timeout", "imap_port", "automatic_checks", "reviewed_cases_file"]
 
 
 def connection_signature(config):

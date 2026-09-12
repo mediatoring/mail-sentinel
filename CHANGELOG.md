@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0rc2 — 2026-09-12
+
+- Host preflight for required built-in checks; explicit case progress and repairable completion rejection for all conclusive verdicts.
+- Complete policy pagination, supporting/counter-evidence claims, explicit coverage and human-review state, bounded repeated calls.
+- Role-limited specialists with child/global budgets, protected revalidated checkpoints, and read-only human-reviewed historical lessons.
+- Unified 28-case real-model evaluation covering demos, multilingual applicability, adversarial cases in both privacy modes and policy pagination. Completion is separate from detection success.
+- Fixed initial folder selection causing false unsaved-change warnings; translated local-provider and existing status messages on language changes.
+- POSIX permission assertion now excludes Windows without skipping secret-handling checks. Actionable occupied-port error and macOS launcher fallback to Python 3.11+.
+- Short READMEs, ZIP download instructions, LM Studio walkthrough, restart/token explanation, and expanded harness regression tests.
+
+
 ## 1.0.0rc1
 
 - Exclusive OS-managed ownership of each data directory; an occupied HTTP port is detected before starting application workers.

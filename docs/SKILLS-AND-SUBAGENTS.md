@@ -16,8 +16,53 @@ Skills are administrator-trusted instructions appended to the system context. Th
 
 ## Specialists
 
-Enable **Allow scoped specialist agents**. The parent supplies a descriptive focus to `consult_specialist`. The child uses the same real provider with a fresh transcript and the current configured tool catalog, including approved plugins and evidence queries. Focus does not grant new permissions.
+Enable **Allow scoped specialist agents** in Settings to allow the role-based delegation described below.
 
-There is one delegation level, no recursion and no mailbox actions in the child. Parent and child share cancellation, call count, input-byte allowance and elapsed-time budget. Child results and evidence are nested under their own evidence IDs. The parent still has to satisfy its own required checks; a child summary is not a substitute for the parent's host-enforced evidence requirements.
+## 1.0.0rc2 specialist roles
 
-Specialist checks are advisory except mandatory message inspection. Enable specialists only when their additional model calls help the investigation. A specialist assessment is a second model assessment, not independently authenticated evidence.
+`consult_specialist` now accepts `area` from `payments`, `manipulation`, `policy`,
+`critic`, and an optional `question`. Unknown roles are rejected. Each role is
+intersected with the parent's enabled tools; unrelated tools and plugins are
+removed from the child's executable registry, including non-check tools.
+
+| Role | Tools (only when parent permits them) |
+| --- | --- |
+| payments | inspect_message, verify_payment, verify_sender |
+| manipulation | inspect_message, inspect_prompt_injection, inspect_links, inspect_attachments |
+| policy | inspect_message, search_policy |
+| critic | inspect_message, inspect_prompt_injection |
+
+The child gets a fresh conversation, protected parent observations as explicitly
+untrusted evidence, and no parent verdict to obey. Child references remain scoped
+to its returned assessment. A child has at most four model calls, with one call
+reserved for the parent, and shares global byte/call/time/cancellation limits.
+The parent can choose a specialist when an unresolved question merits the cost;
+there is no mandatory fleet or recursive delegation. Specialists cannot approve
+quarantine, add tools, or satisfy the parent's checklist with their summary.
+A critic is advisory reasoning, not an independent source or automatic proof.
+
+## Human-reviewed historical memory
+
+Set `reviewed_cases_file = "reviewed-cases.json"` in the administrator TOML file.
+The JSON is a list with entries of this form (use actual review/expiry dates):
+
+```json
+[{
+  "id": "case-001",
+  "lesson": "Confirm account changes using an independently recorded contact.",
+  "source_report": "local-report-id",
+  "reviewed_by": "authorized operator",
+  "reviewed_at": "2026-09-12T12:00:00+00:00",
+  "expires_at": "2026-12-12T12:00:00+00:00"
+}]
+```
+
+Only an operator edits this file after verifying the original case. Missing
+review metadata, invalid dates and oversized files are rejected. Expired entries
+are omitted. `recall_reviewed_cases` reads bounded pages and pseudonymizes them;
+it is unavailable for demo inputs. Its result is optional historical context,
+not an authorization, a current vendor/account registry, or a substitute for
+required checks. The model cannot write, approve or install memories. The file
+is administrator-trusted, not a cryptographically verified identity record.
+Do not commit real case data. Changes to the file invalidate reusable evidence
+checkpoints and are recorded by hash in reports.

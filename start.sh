@@ -9,4 +9,4 @@ if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)';
   echo "Python 3.11+ is required. Upgrade Python, then run this launcher again." >&2
   exit 1
 fi
-exec python3 -m sentinel serve
+exec python3 -m sentinel serve "$@"

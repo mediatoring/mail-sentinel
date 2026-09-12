@@ -34,13 +34,14 @@ class UXLogicTests(unittest.TestCase):
 
     def test_downgrade_removes_conflicting_advice_and_action(self):
         for language in ('en','cs'):
-            reg=registry();reg.c.language=language
+            reg=registry(1);reg.c.language=language
             done=finish(verdict='LOW_RISK',action='quarantine')
             done['arguments']['summary']='This message is safe. Pay now.'
             done['arguments']['recommendations']=['Pay immediately.']
-            result=Agent(reg,ModelDouble([call('verify_sender'),done])).run()['report']
+            result=Agent(reg,ModelDouble([call(n) for n in ['inspect_message','inspect_prompt_injection','verify_sender','inspect_links','inspect_attachments','verify_payment','search_policy']]+[done])).run()['report']
             self.assertEqual(result['verdict'],'INCONCLUSIVE')
             self.assertNotIn('Pay',result['summary'])
+            self.assertEqual(result['claims'],[])
             self.assertNotIn('Pay immediately.',result['recommendations'])
             self.assertEqual(result['proposed_action'],'none')
             self.assertEqual(result['analysis_scope'],reg.c.privacy_mode)

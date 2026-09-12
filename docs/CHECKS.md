@@ -4,7 +4,7 @@ The model interprets message meaning, requested actions and manipulation attempt
 
 | Mode | Effect |
 | --- | --- |
-| Required | Missing or unavailable evidence prevents a low-risk conclusion. The model cannot waive this check. |
+| Required | Missing obtainable evidence prevents conclusive completion. Unavailable evidence prevents a low-risk conclusion. The model cannot waive this check; an explicit INCONCLUSIVE handoff remains possible. |
 | Agent decides | The model selects the tool when useful. |
 | Disabled | The tool is absent from the callable registry. |
 | When applicable | The model assesses relevance from message meaning and the plugin's applicability description. Missing or uncertain assessments leave the check required. |
@@ -37,3 +37,5 @@ python3 -m evaluation.semantic_eval --config sentinel.toml
 The suite uses synthetic German, Slovak, Polish, French, Japanese and Arabic messages plus non-payment controls. It requires a configured real model and can incur provider charges. Its results concern these cases and this model configuration, not universal language accuracy or security certification.
 
 The live acceptance command accepts repeatable `--case` selectors (for example `--case de_payment --case de_greeting`). It checkpoints completed cases to the output file after each investigation; the JSON contains `completed: true` only after the selected set finishes. A matching applicability flag from an incomplete run is not a passing case.
+
+In 1.0.0rc2 required baseline checks run before inference by default. Policy coverage includes every page, not just the first successful call. Applicability concerns the requested action, not the availability of identifiers: missing account details in a payment request leave the check relevant and potentially unverifiable. Reports include structured claims with supporting/counter-evidence references and coverage separately from risk. See [harness](HARNESS.md).

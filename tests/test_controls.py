@@ -24,9 +24,9 @@ class ControlsTests(unittest.TestCase):
 
     def test_missing_mandatory_injection_check_is_inconclusive(self):
         reg=registry();result=Agent(reg,ModelDouble([call('verify_sender'),finish(verdict='LOW_RISK')])).run()
-        self.assertFalse(result['report']['checks_complete'])
-        row=next(r for r in result['report']['check_status'] if r['tool']=='inspect_prompt_injection')
-        self.assertEqual(row['state'],'not_performed')
+        self.assertIsNone(result['report'])
+        pending=next(e for e in result['events'] if e['type']=='completion_rejected')['pending_checks']
+        self.assertIn('inspect_prompt_injection',[r['tool'] for r in pending])
 
     def test_injection_demos_have_indicators_without_text_export(self):
         for index in (2,3,4):
@@ -51,10 +51,12 @@ class ControlsTests(unittest.TestCase):
         reg=registry();reg.c.enable_specialists=True;reg.c.max_steps=3
         model=ModelDouble([call('consult_specialist',{'area':'payments'}),call('verify_payment'),finish()])
         result=Agent(reg,model).run()
-        self.assertEqual(result['status'],'incomplete')
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['steps'],3)
         child=result['events'][0]['observation']['assessment']
-        self.assertEqual(child['status'],'completed')
-        self.assertEqual(child['report']['proposed_action'],'none')
+        self.assertEqual(child['status'],'incomplete')
+        self.assertIsNone(child['report'])
+        self.assertLessEqual(len(model.contexts),3)
 
     def test_skill_provenance_and_disabled_tools(self):
         c=Config(enabled_skills=['payment-review'])

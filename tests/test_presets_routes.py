@@ -132,7 +132,7 @@ class PresetSaveTests(unittest.TestCase):
         self.assertNotIn('synthetic-secret-only', (root/'my-mailbox.toml').read_text('utf-8'))
         self.assertEqual(json.loads((root/'my-mailbox.credentials.json').read_text('utf-8')), {'imap_password_file':'my-mailbox.secret'})
         self.assertEqual((root/'my-mailbox.secret').read_text('utf-8').strip(), 'synthetic-secret-only')
-        for name in ('my-mailbox.toml','my-mailbox.secret','my-mailbox.credentials.json'):
+        for name in (() if os.name == 'nt' else ('my-mailbox.toml','my-mailbox.secret','my-mailbox.credentials.json')):
             self.assertEqual(oct((root/name).stat().st_mode & 0o777), '0o600', name)
 
     def test_saved_preset_restores_the_settings_it_captured(self):

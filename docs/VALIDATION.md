@@ -1,6 +1,30 @@
-# Validation record — 1.0.0rc1
+# Validation record — 1.0.0rc2
 
-## Current local verification — 2026-09-05
+
+## Automated verification — 2026-09-12
+
+- Python 3.13.4 on macOS: **188 tests passed, zero skipped**, with the optional AgentDojo dependency installed.
+- Native AgentDojo adapter fixture check: six fixtures validated, no inference in that check.
+- JavaScript syntax and DOM integration passed, including successful AI saves, genuinely unsaved mailbox edits, Czech status refresh and session recovery.
+- Wheel build and clean offline installation passed: bundled assets, authenticated HTTP, SIGTERM, restart and backup outside the source checkout.
+- New regressions cover automatic baseline checks, repairable completion, all policy pages, no-progress limits, claim references, specialist permissions/shared budgets, protected checkpoint reuse/invalidation, reviewed-memory expiry and occupied-port guidance.
+
+## Live evaluation
+
+`python -m evaluation.full_eval --config sentinel.toml` selects all **28** cases by default: five demos, nine multilingual applicability cases, six adversarial/baseline fixtures in each privacy mode, and two multi-page policy cases. `--list` prints the full selection; `--case` intentionally narrows it; `--repeat N` repeats the selected set.
+
+The output records planned cases, repetitions, per-case reports/latency, source hash and separate completion, guard, expectation and abstention metrics. Every case runs even after another fails. `completed: true` means the whole selected run ended, not that every expected finding was correct. Exit code 1 means a guard or expectation failed. INCONCLUSIVE is never counted as successful attack recognition. Detailed results remain local and ignored by Git.
+
+For all offline tests including optional adapter tests:
+
+```sh
+python -m pip install -r evaluation/requirements.txt
+python -m unittest discover -s tests -v
+```
+
+The CI `optional-adapter` job installs this dependency and runs the complete suite. The OS/Python matrix still verifies the dependency-free application. Live model tests remain separate from deterministic CI and require a configured real provider.
+
+## Historical 1.0.0rc1 verification — 2026-09-05
 
 macOS, Python 3.14.5, LM Studio on loopback with `openai/gpt-oss-20b`:
 

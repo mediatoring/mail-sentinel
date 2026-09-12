@@ -1,6 +1,6 @@
 # Harness and provider extensions
 
-The harness is the host code around the model: message scope, transcript, available tools, execution limits, output validation and events. In this release it is implemented by `Agent.run` together with `Registry` and `Provider`; there is no separate harness plugin loader.
+The harness is the host code around the model: message scope, transcript, available tools, execution limits, output validation and events. It is implemented by `Agent.run`, `harness.py` and `recovery.py` together with `Registry` and `Provider`; there is no separate harness plugin loader.
 
 ## Investigation lifecycle
 
@@ -34,3 +34,56 @@ Each model turn includes `completion_checklist`, computed by the host from valid
 Set `context_tokens` to the window actually loaded in the model server (default 8,192). Before a request, the host estimates input tokens from UTF-8 size at three bytes per token, adds 512 tokens for protocol overhead, and reserves `max_output_tokens`. This is an estimate, not an exact tokenizer; provider-side context errors are also classified safely. `max_input_bytes` separately limits cumulative traffic over the investigation. The model server's context setting must be changed in the server itself.
 
 After `inspect_message`, the initial message is replaced with a reference to that observation to avoid sending the same body twice. Evidence is otherwise retained in full; the host does not silently discard earlier conflicts to fit the context. Oversized investigations stop visibly without a verdict. Reduce input size or increase both configured and loaded context. Model reasoning counts toward the server's output limit; slow local models may also need a larger request timeout. Lowering step limits below the required checks plus completion is not a solution.
+
+## 1.0.0rc2: host-owned orchestration
+
+The default `automatic_checks = true` runs enabled, required built-in message,
+injection, sender, link and attachment checks before the first model request.
+These pass through `Registry.execute`, receive `B01`–`B05` evidence IDs and emit
+the same tool events as model-selected checks. Optional/disabled checks and
+third-party plugins are never executed by this preflight. Model-selected steps
+have `E` IDs. Model call limits count inference, not these local checks.
+
+`harness.py` computes `case_state` (pending checks, unavailable references,
+conflicts, phase) from the evidence. A premature non-INCONCLUSIVE finish returns
+`completion_rejected` with missing checks and the first unread policy offset.
+The model can obtain more evidence or explicitly abstain. All policy pages must
+be covered, including gaps between fetched pages. An explicit INCONCLUSIVE
+handoff is possible without inventing reference data. Risk and coverage are
+separate: `coverage`, `checks_complete`, and `requires_human_review` describe the
+scope alongside the verdict. Missing references do not make an email malicious.
+
+Every finish includes `claims`: statement, supporting evidence IDs, counter-
+evidence IDs, and limitations. Non-abstaining reports require at least one claim.
+The host validates all references; this does not prove semantic entailment.
+Reviewers can inspect claims in the UI. A model that repeats an identical call
+more than twice stops with no final verdict. Fixed tool errors remain safe to
+show; arbitrary provider/plugin errors are suppressed.
+
+### Recovery
+
+UI, CLI scans and queue workers use a disposable `investigation_cache` in the
+existing private SQLite database. Checkpoints expire after 15 minutes. They
+contain protected evidence and call/input-byte counters, never raw email,
+credentials or pseudonym reversal maps. Each key binds the message, organization,
+configuration, plugin entry hashes, skills, data source hash and reviewed-memory
+hash. Resumption re-executes deterministic bundled checks and requires identical
+protected observations before reusing their IDs; model calls already reserved
+remain charged. IDs stay unique. Successful completion removes the checkpoint.
+
+Only bundled checks with no arguments, plus policy offsets, are replayable.
+Specialist, historical-memory and custom query/plugin steps start a fresh run
+because their freshness/reconstruction is not guaranteed. A provider call in
+flight may repeat after a crash; resumption is not exactly-once execution. A new
+attempt receives a fresh wall-clock deadline but retains the saved call and byte
+budget. Queue lease ownership/cancellation remains authoritative. Raw inputs
+still need to be fetched or imported again after a process restart.
+
+### Design references
+
+This implementation takes inspiration from [Hermes delegation patterns](https://hermes-agent.nousresearch.com/docs/guides/delegation-patterns)
+(clean child context, bounded task) and [OpenClaw runtime separation](https://docs.openclaw.ai/agent-runtime-architecture)
+(run lifecycle, evidence/tool dispatch, session state). Neither runtime is a
+new dependency. No shell, unrestricted browsing or model-managed permission
+changes were introduced. Concurrency remains at the message queue level; local
+specialists run on demand and sequentially to avoid overloading a local model.

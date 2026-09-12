@@ -33,7 +33,7 @@ class BoundaryTests(unittest.TestCase):
     def make_registry(self, sender, index=1):
         msg=demo_messages()[index]
         msg['sender']=f'"{sender}" <attacker@example.org>'
-        return Registry(msg,demo_dataset(),Privacy(),Config(model='test',privacy_mode='redacted_text'))
+        return Registry(msg,demo_dataset(),Privacy(),Config(model='test',privacy_mode='redacted_text',automatic_checks=False))
 
     def test_sender_cannot_modify_host_envelope_or_remove_blockers(self):
         for sender in ['blockers','inspect','_check','available','E01','tool','id','status','LOW_RISK','verdict','check_status']:

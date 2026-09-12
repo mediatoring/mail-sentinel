@@ -4,10 +4,20 @@
 
 Potřebujete Python 3.11 nebo novější, prohlížeč a lokální AI server s podporou volání nástrojů nebo API klíč a identifikátor modelu. Pro první spuštění nepotřebujete schránku. Aplikace ze stažené složky nevyžaduje instalaci dalších Python balíčků.
 
+## Kde stáhnout aplikaci
+
+Otevřete [repozitář na GitHubu](https://github.com/mediatoring/mail-sentinel), klikněte na zelené **Code → Download ZIP** a archiv celý rozbalte. Složka se obvykle jmenuje `mail-sentinel-main`; podstatné je, že obsahuje soubory `start.sh`, `START.bat` a podsložku `sentinel`.
+
+## První lokální model AI
+
+Pokud nemáte API klíč, začněte s [LM Studio](https://lmstudio.ai/): je to aplikace, která spouští model na vašem počítači. Nainstalujte ji, v hledání modelů vyhledejte **openai/gpt-oss-20b**, stáhněte kompatibilní variantu doporučenou LM Studio a načtěte ji. Model podporuje nástroje; potřebuje dostatek paměti. Výrobce uvádí možnost provozu od 16 GB, ale delší kontext a ostatní aplikace vyžadují rezervu. Pokud LM Studio hlásí nedostatek paměti, zvolte menší model s podporou nástrojů a nejprve ověřte spojení. [Podrobnosti modelu](https://lmstudio.ai/models/gpt-oss).
+
+V LM Studio otevřete **Developer**, zapněte lokální server a ponechte aplikaci běžet. V Mail Sentinelu vyberte **Lokální model → LM Studio**, adresu `http://127.0.0.1:1234/v1` a **Načíst dostupné modely**. Vyberte načtený model a klikněte na **Ověřit a uložit připojení AI**. API klíč se u lokálního modelu nevyplňuje. Pro gpt-oss-20b byl dříve ověřen kontext 32 768 tokenů; stejnou hodnotu nastavte při načítání modelu i v limitech Sentinelu. Pro pomalejší model lze nastavit výstup 4 096 tokenů, timeout požadavku 120 sekund a limit vyšetřování 600 sekund.
+
 ## Windows
 
 1. Nainstalujte Python 3.11+ z [python.org](https://www.python.org/downloads/). Pokud instalátor nabídne přidání Pythonu do PATH, zapněte je.
-2. ZIP celý rozbalte přes **Extrahovat vše**. Otevřete rozbalenou složku `mail-sentinel`. Nespouštějte aplikaci přímo z náhledu ZIPu.
+2. ZIP celý rozbalte přes **Extrahovat vše**. Otevřete rozbalenou složku `mail-sentinel-main`. Nespouštějte aplikaci přímo z náhledu ZIPu.
 3. Dvakrát klikněte na `START.bat`. Okno terminálu nechte otevřené.
 4. V prohlížeči otevřete celou vypsanou lokální adresu, včetně části `#token=…`.
 
@@ -22,18 +32,18 @@ Pokud příkaz `py` chybí, zkuste `python --version` a `python -m sentinel serv
 
 ## macOS
 
-Pokud potřebujete Python 3.11+, nainstalujte jej z [python.org](https://www.python.org/downloads/macos/). Rozbalte ZIP, otevřete Terminál, napište `cd `, přetáhněte do něj rozbalenou složku `mail-sentinel` a stiskněte Return. Pak spusťte:
+Pokud potřebujete Python 3.11+, nainstalujte jej z [python.org](https://www.python.org/downloads/macos/). Rozbalte ZIP, otevřete Terminál, napište `cd `, přetáhněte do něj rozbalenou složku `mail-sentinel-main` a stiskněte Return. Pak spusťte:
 
 ```sh
 python3 --version
 sh start.sh
 ```
 
-Terminál nechte otevřený a v prohlížeči otevřete celou vypsanou adresu. Příkaz `sh start.sh` funguje i tehdy, když se při rozbalení nezachovalo oprávnění ke spuštění souboru.
+Pro další otevření můžete také dvakrát kliknout na **Open Mail Sentinel.command**; virtuální prostředí `.venv` není povinné. Spouštěč otevře existující relaci nebo spustí službu na pozadí. Při spuštění přes `sh start.sh` terminál nechte otevřený a v prohlížeči otevřete celou vypsanou adresu. Příkaz `sh start.sh` funguje i tehdy, když se při rozbalení nezachovalo oprávnění ke spuštění souboru.
 
 ## Linux
 
-Podle potřeby nainstalujte Python 3.11+ správcem balíčků své distribuce. Rozbalte ZIP a otevřete terminál ve složce `mail-sentinel`:
+Podle potřeby nainstalujte Python 3.11+ správcem balíčků své distribuce. Rozbalte ZIP a otevřete terminál ve složce `mail-sentinel-main`:
 
 ```sh
 python3 --version
@@ -60,7 +70,7 @@ Pro průběžný provoz otevřete **Sledování schránky**. V **Rozsah zpracov�
 
 ## Ukončení a další spuštění
 
-Aplikaci ukončíte přes Ctrl+C v terminálu. Při dalším spuštění použijte stejný spouštěč a nově vypsanou adresu. Nastavení a výsledky zůstanou ve složce projektu; klíče a hesla zadané v prohlížeči je po restartu nutné zadat znovu. Složku projektu proto ponechte na místě.
+Aplikaci spuštěnou přes `sh start.sh` nebo `START.bat` ukončíte přes Ctrl+C v terminálu. Stará záložka s tokenem po restartu přestane fungovat; otevřete nově vypsanou adresu, která prohlížeč znovu připojí. Při dalším spuštění použijte stejný spouštěč a nově vypsanou adresu. Nastavení a výsledky zůstanou ve složce projektu; klíče a hesla zadané v prohlížeči je po restartu nutné zadat znovu. Složku projektu proto ponechte na místě.
 
 Pro automatický provoz a proměnné prostředí slouží [provozní návod](OPERATIONS.md). Volitelného terminálového průvodce spustíte přes `python3 -m sentinel setup`, na Windows `py -3 -m sentinel setup`. Průvodce existující nastavení nepřepíše.
 
@@ -84,7 +94,7 @@ Aplikace běží pouze na daném počítači. Adresa otevřená na telefonu se k
 
 ## Vlastní firemní pravidla a SQL evidence
 
-V **Pravidla kontroly → Požadavky na prověřování** popište, co má agent ověřovat. V **Rozšíření agenta → Databázové ověřovací dotazy** vyplňte konfiguraci podle [příkladu SQLite](../examples/data-sources.sqlite.json) nebo [PostgreSQL](../examples/data-sources.postgresql.json). Použijte vlastní názvy tabulek, sloupců a význam parametrů. Po uložení se dotazy objeví v pravidlech kontrol.
+V **Pravidla kontroly → Požadavky na prověřování** popište, co má agent ověřovat. V **Rozšíření agenta → Databázové ověřovací dotazy** vyplňte konfiguraci podle [návodu SQLite](DATA-SOURCES.md) nebo [PostgreSQL](../examples/data-sources.postgresql.json). Použijte vlastní názvy tabulek, sloupců a význam parametrů. Po uložení se dotazy objeví v pravidlech kontrol.
 
 U SQL evidence vypněte kontroly lokálního dodavatelského adaptéru, které nepoužíváte, a nastavte režimy nových dotazů. Přihlašovací údaje PostgreSQL nastavte v proměnné prostředí uvedené v konfiguraci zdroje; do editoru patří pouze název proměnné. Oprávnění k databázi nastavuje její správce. Podrobnosti: [Datové zdroje](DATA-SOURCES.md).
 

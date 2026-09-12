@@ -4,10 +4,20 @@
 
 You need Python 3.11 or newer, a browser, and either a local model server with tool-call support or an API key and model identifier. IMAP is optional for the first run. No Python packages need installing to run the application from this folder.
 
+## Download the application
+
+Open the [GitHub repository](https://github.com/mediatoring/mail-sentinel), choose **Code → Download ZIP**, and extract the complete archive. Its directory is normally named `mail-sentinel-main`; it contains `start.sh`, `START.bat` and the `sentinel` subdirectory.
+
+## Your first local AI model
+
+Without an API key, start with [LM Studio](https://lmstudio.ai/), an application that runs models on your computer. Install it, search for **openai/gpt-oss-20b**, download a compatible variant suggested by LM Studio, and load it. This model supports tool calls. The vendor describes configurations starting at 16 GB memory, but long context and other applications need additional headroom. If loading fails for lack of memory, choose a smaller tool-capable model and verify the connection first. [Model details](https://lmstudio.ai/models/gpt-oss).
+
+Open **Developer** in LM Studio and start its local server. Keep it running. In Sentinel, choose **Local model → LM Studio**, URL `http://127.0.0.1:1234/v1`, then **Load available models**. Select the loaded model and **Verify and save AI connection**. Local models do not need an API key. A previously verified gpt-oss-20b profile used 32,768 context tokens; set the same context in both applications. Slow reasoning models may need 4,096 output tokens, a 120-second request timeout and a 600-second investigation limit.
+
 ## Windows
 
 1. Install Python 3.11+ from [python.org](https://www.python.org/downloads/). Enable the installer option to add Python to PATH when offered.
-2. Extract the ZIP completely (right-click → Extract All). Open the extracted `mail-sentinel` folder. Do not run inside the ZIP viewer.
+2. Extract the ZIP completely (right-click → Extract All). Open the extracted `mail-sentinel-main` folder. Do not run inside the ZIP viewer.
 3. Double-click `START.bat`. Leave its terminal window open.
 4. Open the full local URL printed in the terminal in your browser, including `#token=…`.
 
@@ -22,7 +32,7 @@ If `py` is unavailable but Python is installed, use `python --version` and `pyth
 
 ## macOS
 
-Install Python 3.11+ from [python.org](https://www.python.org/downloads/macos/) if needed. Extract the ZIP, open Terminal, type `cd `, drag the extracted `mail-sentinel` folder into Terminal and press Return. Then run:
+Install Python 3.11+ from [python.org](https://www.python.org/downloads/macos/) if needed. Extract the ZIP, open Terminal, type `cd `, drag the extracted `mail-sentinel-main` folder into Terminal and press Return. Then run:
 
 ```sh
 python3 --version
@@ -33,7 +43,7 @@ Leave Terminal open and open the complete local URL it prints. Using `sh start.s
 
 ## Linux
 
-Use your distribution's package manager to install Python 3.11+ if needed. Extract the ZIP and open a terminal in the `mail-sentinel` folder:
+Use your distribution's package manager to install Python 3.11+ if needed. Extract the ZIP and open a terminal in the `mail-sentinel-main` folder:
 
 ```sh
 python3 --version
@@ -95,3 +105,8 @@ Run `python3 -m sentinel check` (`py -3 -m sentinel check` on Windows) from the 
 Only one process can use the same data folder. Stop the existing process before restarting. If the HTTP port belongs to another application, choose another port with `serve --port 8766`.
 
 Use `python3 -m sentinel backup backup.sqlite3` (`py -3` on Windows) to save reports and queue state. The file must not already exist. See [backup and restoration](OPERATIONS.md).
+
+
+## Reopening on macOS
+
+Double-click **Open Mail Sentinel.command**. It uses `.venv/bin/python` when present, otherwise Python 3.11+ from your system; no virtual environment is required for the extracted source. It opens the existing service or starts one in the background. With `sh start.sh`, keep the terminal open and use Ctrl+C to stop. After a service restart, an old bookmarked token is invalid: use the launcher or the newly printed complete address to reconnect the browser.

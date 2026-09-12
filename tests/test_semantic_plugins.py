@@ -55,7 +55,7 @@ class SemanticPluginTests(unittest.TestCase):
     def test_custom_plugin_blocker_prevents_low_risk(self):
         reg=registry()
         reg.add(Tool('verify_contract','Check contract approval',schema(),lambda:{},blockers=lambda result:['Contract suspended']))
-        result=Agent(reg,ModelDouble([call('verify_contract'),finish(verdict='LOW_RISK')])).run()
+        result=Agent(reg,ModelDouble([call(n) for n in ['inspect_message','inspect_prompt_injection','verify_sender','inspect_links','inspect_attachments','verify_payment','search_policy','verify_contract']]+[finish(verdict='LOW_RISK')])).run()
         self.assertIn('Contract suspended',result['report']['uncertainties'])
 
     def test_policy_retrieval_does_not_filter_by_language_or_fixed_topic(self):

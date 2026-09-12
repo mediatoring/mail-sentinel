@@ -32,3 +32,15 @@ jobs:
       - run: node --check sentinel/static/controls.js
       - run: node --check sentinel/static/i18n.js
       - run: node tests/ui-flow.cjs
+
+  optional-adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r evaluation/requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python -m evaluation.agentdojo_eval --check
+      - run: python -m evaluation.full_eval --list

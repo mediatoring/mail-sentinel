@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import socket
 import sys
 import tempfile
 import time
@@ -49,6 +50,9 @@ def session_url(config, config_path):
 def open_app(config, config_path, port=8765):
     url = session_url(config, config_path)
     if not url:
+        # Fail before launching a child whose diagnostic would only reach desktop.log.
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', port))
         root = Path(config.data_dir)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         fd = os.open(root/'desktop.log', os.O_WRONLY|os.O_CREAT|os.O_APPEND, 0o600)

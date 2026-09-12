@@ -36,7 +36,8 @@ def main():
         report = result.get('report') or {}
         verdict = report.get('verdict')
         passed = result['status'] == 'completed' and (verdict in {'LOW_RISK', 'INCONCLUSIVE'} if i == 1 else verdict in {'SUSPICIOUS', 'HIGH_RISK', 'INCONCLUSIVE'})
-        results['cases'].append({'demo': i, 'elapsed_seconds': round(time.monotonic()-started, 2),
+        expected = result['status'] == 'completed' and verdict in ({'LOW_RISK'} if i == 1 else {'SUSPICIOUS', 'HIGH_RISK'})
+        results['cases'].append({'expectation_met': expected, 'demo': i, 'elapsed_seconds': round(time.monotonic()-started, 2),
                                  'guard_passed': passed, **result})
         target = Path(args.output)
         temporary = target.with_suffix(target.suffix + '.tmp')
@@ -45,7 +46,7 @@ def main():
         print(i, result['status'], verdict, 'checks_complete='+str(report.get('checks_complete')), flush=True)
     results['completed'] = True
     target.write_text(json.dumps(results, ensure_ascii=False, indent=2), 'utf-8')
-    return 0 if all(c['guard_passed'] for c in results['cases']) else 1
+    return 0 if all(c['guard_passed'] and c['expectation_met'] for c in results['cases']) else 1
 
 
 if __name__ == '__main__':

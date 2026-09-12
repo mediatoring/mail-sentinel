@@ -3,6 +3,7 @@ import json
 import sys
 from .agent import FINISH
 from .reports import complete_report
+from .harness import guard_completion, CompletionPending
 from . import __version__
 
 
@@ -39,6 +40,7 @@ class Session:
                     raise ValueError('Session complete or step limit reached')
                 name=params['name'];args=params.get('arguments',{})
                 if name=='finish_investigation':
+                    guard_completion(self.registry,args,self.evidence)
                     output=complete_report(self.registry,args,self.evidence,FINISH['parameters'])
                     output['proposed_action']='none'
                     self.closed=True
@@ -47,6 +49,8 @@ class Session:
                     output=self.registry.evidence(f'E{len(self.evidence)+1:02}',name,args,'ok',observation)
                     self.evidence.append(output)
                 result={'content':[{'type':'text','text':json.dumps(output,ensure_ascii=False)}],'isError':False}
+            except CompletionPending as exc:
+                result={'content':[{'type':'text','text':json.dumps({'reason':'missing_checks','pending_checks':exc.pending})}],'isError':True}
             except Exception:
                 result={'content':[{'type':'text','text':'Tool call rejected: check tool, arguments, evidence references and session limits.'}],'isError':True}
         else:return error(-32601,'Method not found')

@@ -36,3 +36,5 @@ See [check rules](CHECKS.md), [queue operations](QUEUE.md), [MCP](MCP.md) and [r
 Frontend DOM regression tests: install `jsdom` in your development environment and run `node tests/ui-flow.cjs`. `JSDOM_MODULE` may point to an existing installation. Runtime users do not need Node.js or jsdom.
 
 Plugin metadata and completion: `Tool`, `Registry` in `tools.py`; bundled adapter implementation: `builtin_checks.py`; administrator SQL tools: `data_sources.py`; shared EN/CZ strings: `static/i18n.js`. The model, settings and completion reports consume the same check catalog. See [database sources](DATA-SOURCES.md).
+
+Host orchestration: `harness.py`; protected checkpoint recovery: `recovery.py`; administrator-reviewed historical lessons: `memory.py`; all native live scenarios: `evaluation/full_eval.py` (28 cases). Optional AgentDojo adapter plumbing is also covered in CI with its dependencies installed.

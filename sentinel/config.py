@@ -51,6 +51,8 @@ class Config:
     skills_dir: str = "skills"
     enabled_skills: list[str] = field(default_factory=list)
     enable_specialists: bool = False
+    automatic_checks: bool = True
+    reviewed_cases_file: str = ""
 
     def validate(self):
         from datetime import date
@@ -149,6 +151,8 @@ def load_config(path="sentinel.toml"):
         c.skills_dir = str(root / c.skills_dir)
         if c.data_sources_file:
             c.data_sources_file = str(root / c.data_sources_file)
+        if c.reviewed_cases_file:
+            c.reviewed_cases_file = str(root / c.reviewed_cases_file)
         if c.organization_file:
             c.organization_file = str(root / c.organization_file)
     return c.validate()

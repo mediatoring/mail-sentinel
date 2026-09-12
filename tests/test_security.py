@@ -27,12 +27,13 @@ def call(name, arguments=None):
     return {'name': name, 'arguments': arguments or {}}
 
 
-def finish(ids=('E01',), verdict='SUSPICIOUS', action='none'):
-    return call('finish_investigation', {'verdict': verdict, 'summary': 'Evidence-based finding', 'evidence_ids': list(ids), 'uncertainties': [], 'recommendations': ['Review'], 'proposed_action': action})
+def finish(ids=('E01',), verdict='INCONCLUSIVE', action='none'):
+    return call('finish_investigation', {'verdict': verdict, 'summary': 'Evidence-based finding', 'claims':[{'statement':'Observed test finding','evidence_ids':list(ids),'counter_evidence_ids':[],'limitations':[]}], 'evidence_ids': list(ids), 'uncertainties': [], 'recommendations': ['Review'], 'proposed_action': action})
 
 
 def registry(index=0, **kwargs):
     kwargs.setdefault('privacy_mode','evidence_only')
+    kwargs.setdefault('automatic_checks',False)
     c = Config(model='test-only', **kwargs)
     org = demo_dataset()
     return Registry(demo_messages()[index], org, Privacy(redaction_terms(org, c)), c)
@@ -48,7 +49,9 @@ class AgentTests(unittest.TestCase):
 
     def test_low_risk_without_basic_checks_is_inconclusive(self):
         result = Agent(registry(), ModelDouble([call('verify_sender'), finish(verdict='LOW_RISK')])).run()
-        self.assertEqual(result['report']['verdict'], 'INCONCLUSIVE')
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertIsNone(result['report'])
+        self.assertTrue(any(e['type']=='completion_rejected' for e in result['events']))
 
     def test_payment_mismatch_cannot_be_low_risk(self):
         calls = [call(n) for n in ['inspect_message','inspect_prompt_injection','verify_sender','inspect_links','inspect_attachments','verify_payment']]

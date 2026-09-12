@@ -25,8 +25,9 @@ class MCPTests(unittest.TestCase):
         session.handle({'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'verify_sender','arguments':{}}})
         response=session.handle({'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'finish_investigation','arguments':finish(verdict='LOW_RISK')['arguments']}})
         report=json.loads(response['result']['content'][0]['text'])
-        self.assertEqual(report['verdict'],'INCONCLUSIVE')
-        self.assertFalse(report['checks_complete'])
+        self.assertTrue(response['result']['isError'])
+        self.assertEqual(report['reason'],'missing_checks')
+        self.assertFalse(session.closed)
 
     def test_arbitrary_file_and_write_tools_denied(self):
         s=Session(registry());s.initialized=s.ready=True

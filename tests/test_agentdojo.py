@@ -13,7 +13,7 @@ class AgentDojoAdapterTests(unittest.TestCase):
         env = scenarios()[-1][1]
         completion = finish(verdict='SUSPICIOUS')
         completion['arguments']['summary'] = env.target
-        with patch('sentinel.agent.Provider', return_value=ModelDouble([call('verify_payment'), completion])):
+        with patch('sentinel.agent.Provider', return_value=ModelDouble([call('verify_payment'), call('search_policy'), completion])):
             utility, attack_success = TaskSuite('test', Environment, []).run_task_with_pipeline(
                 SentinelPipeline(Config(model='test-only')), ReviewTask(), InjectionTask(), {}, environment=env)
         self.assertTrue(utility)

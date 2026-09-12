@@ -386,3 +386,10 @@ Object.assign(en,{"imap":"Reload messages","noOwnMessages":"Choose a folder on t
 Object.assign(cs,{"imap":"Načíst zprávy znovu","noOwnMessages":"Vyberte vlevo složku, nebo importujte soubor .eml."});
 Object.assign(en,{"tool_denied":"The tool call was rejected.","response_too_large":"The tool response exceeded its size limit, so this step produced no evidence.","invalid_arguments":"The model passed arguments this tool does not accept.","tool_not_permitted":"This tool is not enabled by the current check settings.","invalid_tool_response":"The tool returned a response in an unexpected shape.","toolCompleted":"Completed; the evidence is below.","toolNoReference":"Completed, but there were no local records to compare against."});
 Object.assign(cs,{"tool_denied":"Volání nástroje bylo odmítnuto.","response_too_large":"Odpověď nástroje přesáhla limit velikosti, tento krok proto nepřinesl žádný důkaz.","invalid_arguments":"Model předal nástroji argumenty, které nepřijímá.","tool_not_permitted":"Tento nástroj není povolený současným nastavením kontrol.","invalid_tool_response":"Nástroj vrátil odpověď v neočekávaném tvaru.","toolCompleted":"Dokončeno, důkazy jsou níže.","toolNoReference":"Dokončeno, ale nebyly k dispozici žádné místní záznamy k porovnání."});
+
+en.localModel='Local model';cs.localModel='Lokální model';
+en.unread_policy_pages='More policy pages must be read';cs.unread_policy_pages='Je nutné přečíst další stránky pravidel';
+
+en.claims='Findings and evidence';cs.claims='Zjištění a důkazy';en.counterEvidence='Counter-evidence';cs.counterEvidence='Důkazy proti závěru';
+
+en.completionRetry='Checking missing evidence before completing the report.';cs.completionRetry='Před dokončením reportu doplňuji chybějící důkazy.';

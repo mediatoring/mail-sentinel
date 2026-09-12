@@ -106,6 +106,8 @@ class Registry:
             self.provenance.append({'module':module,'entry_sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest() if path else None})
         from .data_sources import register_sources
         register_sources(self)
+        from .memory import register_memory
+        register_memory(self)
         unknown=set(config.check_modes)-set(self.catalog)
         if unknown: raise ValueError("Check rules refer to unavailable plugins: "+", ".join(sorted(unknown)))
         self.c.check_modes={n:self.mode(n) for n,t in self.catalog.items() if t.check}
@@ -165,6 +167,8 @@ class Registry:
             result = {**{k:raw[k] for k in ('applicable','not_applicable','uncertain','assessment_source','independently_verified')},
                       'reason':self.privacy.text(raw['reason'])}
         result['_check'] = {'available':available, 'blockers':self.privacy.protect(blockers)}
+        if name == 'search_policy':
+            result['_check']['page'] = {'offset': arguments.get('offset', 0), 'total': len(self.org.get('policies', [])), 'size': 5}
         if len(json.dumps(result, ensure_ascii=False).encode('utf-8')) > 20000:
             raise ValueError("Tool response exceeds limit")
         return result
