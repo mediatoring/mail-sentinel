@@ -217,7 +217,7 @@ def validate_arguments(args, spec):
             if not math.isfinite(value) or value < rule.get('minimum',-math.inf) or value > rule.get('maximum',math.inf):
                 raise ValueError('Invalid tool argument number')
         if isinstance(value, list):
-            if len(value) > min(100,rule.get('maxItems',100)):
+            if not rule.get('minItems', 0) <= len(value) <= min(100,rule.get('maxItems',100)):
                 raise ValueError('Invalid tool argument list')
             for item in value:
                 validate(item,rule.get('items',{'type':'string'}),depth+1)

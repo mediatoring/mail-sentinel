@@ -7,7 +7,7 @@ FINISH = {"name": "finish_investigation", "description": "Complete the investiga
           "parameters": schema({
               "verdict": {"type": "string", "enum": ["LOW_RISK", "SUSPICIOUS", "HIGH_RISK", "INCONCLUSIVE"]},
               "summary": {"type": "string"},
-              "claims": {"type": "array", "maxItems": 12, "items": schema({
+              "claims": {"type": "array", "minItems": 1, "maxItems": 12, "description": "At least one observed finding, including for a harmless message or an abstention. Cite successful evidence IDs for each finding.", "items": schema({
                   "statement": {"type": "string"}, "evidence_ids": {"type": "array", "items": {"type": "string"}},
                   "counter_evidence_ids": {"type": "array", "items": {"type": "string"}},
                   "limitations": {"type": "array", "items": {"type": "string"}}
@@ -127,13 +127,15 @@ class Agent:
                 if not guard.accept(name, arguments):
                     raise RuntimeError('Investigation stopped: repeated calls without progress')
                 if name == 'finish_investigation':
-                    validate_arguments(arguments, FINISH['parameters'])
                     try:
+                        validate_arguments(arguments, FINISH['parameters'])
                         guard_completion(self.registry, arguments, context['evidence'])
                         report = complete_report(self.registry, arguments, context['evidence'], FINISH['parameters'])
                     except (CompletionPending, ValueError) as exc:
                         context['completion_feedback'] = {'reason': 'missing_checks' if isinstance(exc, CompletionPending) else 'invalid_evidence_or_claims',
                             'pending_checks': progress(self.registry, context['evidence'])['pending_checks'],
+                            'observed_evidence_ids': [e['id'] for e in context['evidence'] if e.get('status') == 'ok'],
+                            'detail': 'Include at least one claim even for a harmless message. Each claim needs statement, nonempty evidence_ids, counter_evidence_ids and limitations. Use only observed successful IDs; empty claims are invalid.',
                             'instruction': 'Obtain missing evidence or correct references. Abstain with INCONCLUSIVE when further verification needs a human.'}
                         emit({'type': 'completion_rejected', **context['completion_feedback']})
                         continue

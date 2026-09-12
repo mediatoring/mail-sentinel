@@ -64,6 +64,17 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(result['events'][1]['reason'],'invalid_evidence_or_claims')
         self.assertEqual(result['status'],'completed')
 
+    def test_empty_claims_get_actionable_feedback_then_can_be_repaired(self):
+        empty = finish(('B01',))
+        empty['arguments']['claims'] = []
+        model = ModelDouble([empty, finish(('B01',))])
+        result = Agent(registry(automatic_checks=True), model).run()
+        self.assertEqual(result['status'], 'completed')
+        feedback = model.contexts[1]['completion_feedback']
+        self.assertIn('at least one claim', feedback['detail'])
+        self.assertIn('B01', feedback['observed_evidence_ids'])
+        self.assertEqual(result['steps'], 2)
+
     def test_specialist_permission_and_global_budget(self):
         reg=registry(max_steps=8)
         reg.add(Tool('secret_plugin','Must not reach child',schema(),lambda:{},check=False))
