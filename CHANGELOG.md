@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Optional TypeSafe AI System One decision model (Jev) as the `evaluate_decision_model` check: host-owned typed questions over the pseudonymized message, calibrated probabilities recorded as evidence, per-check applicability signals, a likely-fraud blocker, separate credential, consent and verification in Settings, `doctor` and `check`.
+
 ## 1.0.0rc2 — 2026-09-13
 
 - Host preflight for required built-in checks; explicit case progress and repairable completion rejection for all conclusive verdicts.

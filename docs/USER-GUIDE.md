@@ -42,6 +42,20 @@ Set `SENTINEL_API_KEY` in your environment. Interactive startup can also ask for
 
 The web UI and queue use API/local-server adapters. [The MCP adapter](MCP.md) exposes single-message evidence tools and guarded completion to external clients such as Codex, Claude Code and Cursor, using the client's own model/login. Direct CLI subprocess providers and direct ChatGPT/Claude web-session authentication are not embedded in the web UI.
 
+### Decision model (TypeSafe Jev)
+
+[TypeSafe AI](https://typesafe.ai/) Jev ([documentation](https://docs.typesafe.ai/introduction)) is a System One decision model. It receives a piece of state and fixed typed questions and returns typed answers with calibrated probabilities: a yes/no probability (`noul`), a choice with a distribution over the supplied labels, or a score on an ordered rubric. It cannot answer outside the supplied labels, generates no text and selects no tools, so it cannot replace the investigating model. Mail Sentinel registers it as the evidence tool `evaluate_decision_model`:
+
+```toml
+typesafe_model = "jev-latest"        # blank disables the tool
+allow_external = true                # the pseudonymized message leaves this computer
+privacy_mode = "redacted_text"       # evidence_only sends nothing and marks the check unavailable
+# typesafe_base_url = "https://api.typesafe.ai"   # HTTPS only
+# typesafe_api_key_env = "TYPESAFE_API_KEY"
+```
+
+Set `TYPESAFE_API_KEY` in the environment or enter it under Settings → Decision model; keys entered in the UI stay in process memory. `python -m sentinel doctor` also sends one typed test question without message data. The tool asks host-owned questions: fraud likelihood, requested action, pressure, impersonation, AI-directed instructions, plus one applicability question per conditional check built from that check's own applicability description. Email content never changes the questions. The state sent is the same pseudonymized message the investigating model sees, limited in size; answers are recorded as evidence with an ID, and a fraud probability of 0.9 or more is a host blocker that prevents a LOW_RISK verdict. Evidence-only mode, a missing key or a rejected request record an unavailable check rather than a fabricated answer. These calls are billed by TypeSafe per input token and are not counted against `daily_model_calls`. Set the check mode to Required when every investigation must include it; investigations then need one extra model step, and the local provider combined with this tool still requires `allow_external` plus per-investigation consent.
+
 
 ## What makes it agentic?
 
@@ -151,7 +165,7 @@ Start with [the developer guide](DEVELOPMENT.md) and [AGENTS.md](../AGENTS.md). 
 
 Author: [Michal Kubíček](https://kubicek.ai/). Support by [Mediatoring.com](https://mediatoring.cz/en/cybersecurity/).
 
-Connection settings adapt to the provider: local AI shows a server URL; OpenAI, Anthropic and Gemini show an API-key field; compatible HTTPS providers show both. External-processing consent appears only for cloud providers.
+Connection settings adapt to the provider: local AI shows a server URL; OpenAI, Anthropic and Gemini show an API-key field; compatible HTTPS providers show both. External-processing consent appears for cloud providers and whenever a decision model is configured.
 
 
 ## Organization rules and database tools

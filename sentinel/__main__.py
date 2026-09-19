@@ -106,6 +106,8 @@ def _main():
         return
     if args.command in {"doctor", "scan", "watch"} and c.external and not c.api_key and os.isatty(0):
         os.environ[c.api_key_env] = getpass.getpass("AI API key (kept in process memory): ")
+    if args.command in {"doctor", "scan", "watch"} and c.external_decisions and not c.typesafe_api_key and os.isatty(0):
+        os.environ[c.typesafe_api_key_env] = getpass.getpass("TypeSafe API key (kept in process memory): ")
     if args.command == "doctor":
         from .providers import Provider
         d = [{"name": "connection_ok", "description": "Confirm connection", "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False}}]
@@ -113,12 +115,18 @@ def _main():
         if result != {"name": "connection_ok", "arguments": {}}:
             raise SystemExit("Model did not demonstrate native tool calling")
         print("Real AI connection and native tool calling verified.")
+        if c.external_decisions:
+            from .typesafe import DecisionModel
+            answer = DecisionModel(c).verify()
+            print("Decision model connection verified: " + (answer["model"] or c.typesafe_model))
         return
     if args.command in {"scan", "watch"}:
-        if c.external and not args.allow_external:
+        if (c.external or c.external_decisions) and not args.allow_external:
             raise SystemExit("Review privacy configuration, then pass --allow-external to authorize this run")
         if c.external and (not c.allow_external or not c.api_key):
             raise SystemExit("Configure an API key and allow_external before processing mail")
+        if c.external_decisions and (not c.allow_external or not c.typesafe_api_key):
+            raise SystemExit("Configure the TypeSafe API key and allow_external before using the decision model")
         if not c.model:
             raise SystemExit("Configure a real AI model first: python -m sentinel setup")
         from .queue import QueueStore, QueueService

@@ -16,7 +16,7 @@ Start with [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md). 
 | Settings and CLI | `sentinel/config.py`, `sentinel/__main__.py` |
 | English/Czech interface | `sentinel/static/index.html`, `sentinel/static/app.js` |
 
-Queue storage and workers: `sentinel/queue.py`; shared budgets: `sentinel/budget.py`; completion: `sentinel/reports.py`; check policy: `sentinel/rules.py`; injection indicators: `sentinel/injection.py`; skill loader: `sentinel/skills.py`; MCP transport: `sentinel/mcp.py`.
+TypeSafe Jev typed decision evidence: `sentinel/typesafe.py`. Queue storage and workers: `sentinel/queue.py`; shared budgets: `sentinel/budget.py`; completion: `sentinel/reports.py`; check policy: `sentinel/rules.py`; injection indicators: `sentinel/injection.py`; skill loader: `sentinel/skills.py`; MCP transport: `sentinel/mcp.py`.
 
 ## Extension recipes
 

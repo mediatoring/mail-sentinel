@@ -53,6 +53,10 @@ class Config:
     enable_specialists: bool = False
     automatic_checks: bool = True
     reviewed_cases_file: str = ""
+    # Optional TypeSafe AI System One decision model (Jev): typed evidence, never the investigating model.
+    typesafe_model: str = ""
+    typesafe_base_url: str = ""
+    typesafe_api_key_env: str = "TYPESAFE_API_KEY"
 
     def validate(self):
         from datetime import date
@@ -92,6 +96,14 @@ class Config:
             date.fromisoformat(self.queue_since)
         if self.imap_auth not in {"password", "oauth2"}:
             raise ValueError("Unsupported IMAP authentication")
+        if self.typesafe_model and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,199}", self.typesafe_model):
+            raise ValueError("Invalid decision model identifier")
+        if self.typesafe_base_url:
+            u = urlsplit(self.typesafe_base_url)
+            if u.scheme != "https" or not u.hostname or u.username or u.password or u.query or u.fragment or len(self.typesafe_base_url) > 400:
+                raise ValueError("Decision model requires a plain HTTPS base URL")
+        if self.typesafe_model and not self.allow_external:
+            raise ValueError("The decision model sends pseudonymized text to TypeSafe AI; enable allow_external to use it")
 
         if self.provider not in {"openai", "anthropic", "gemini", "local", "compatible"}:
             raise ValueError("Unsupported provider")
@@ -135,6 +147,19 @@ class Config:
     @property
     def api_key(self):
         return os.environ.get(self.api_key_env, "")
+
+    @property
+    def external_decisions(self):
+        """A configured decision model is a second external destination with its own credential."""
+        return bool(self.typesafe_model)
+
+    @property
+    def typesafe_endpoint(self):
+        return (self.typesafe_base_url or "https://api.typesafe.ai").rstrip("/")
+
+    @property
+    def typesafe_api_key(self):
+        return os.environ.get(self.typesafe_api_key_env, "")
 
 
 def load_config(path="sentinel.toml"):

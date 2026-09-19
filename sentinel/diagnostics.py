@@ -19,6 +19,9 @@ def readiness(config):
     if config.external:
         add("external_consent", "pass" if config.allow_external else "fail", "Enabled" if config.allow_external else "Review privacy settings and enable external processing.")
         add("credential", "pass" if config.api_key else "fail", "Present" if config.api_key else "Set the configured API key environment variable.")
+    if config.typesafe_model:
+        ready = config.allow_external and bool(config.typesafe_api_key)
+        add("decision_model", "pass" if ready else "fail", "Configured; connection not tested. Run doctor for a real typed request." if ready else "Set the TypeSafe API key environment variable and enable external processing.")
     try:
         org = organization(config)
         msg = demo_messages()[0]

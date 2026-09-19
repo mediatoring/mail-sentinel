@@ -43,6 +43,12 @@ max_input_bytes = 500000
 # Match the context loaded in your model server; the application uses an estimate.
 context_tokens = 8192
 
+# Optional TypeSafe AI decision model (Jev). Typed probabilities recorded as evidence; requires
+# allow_external = true, privacy_mode = "redacted_text" and TYPESAFE_API_KEY in the environment.
+typesafe_model = "" # e.g. "jev-latest"; blank disables the evaluate_decision_model check
+typesafe_base_url = "" # HTTPS only; blank uses https://api.typesafe.ai
+typesafe_api_key_env = "TYPESAFE_API_KEY"
+
 # Alternative: "oauth2", with an administrator-managed access token.
 imap_auth = "password"
 imap_token_env = "SENTINEL_IMAP_ACCESS_TOKEN"

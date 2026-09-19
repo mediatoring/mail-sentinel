@@ -54,12 +54,14 @@ function updateProviderFields(){
   f.allow_external.checked=false;
  }
  settingsProvider=p;
+ const decision=Boolean(f.typesafe_model&&f.typesafe_model.value.trim());
  fieldVisible('base_url',p==='local'||p==='compatible');
  fieldVisible('api_key',p!=='local');
- fieldVisible('allow_external',p!=='local');
+ fieldVisible('allow_external',p!=='local'||decision);
  f.base_url.required=p==='compatible';
  f.base_url.placeholder=p==='compatible'?'https://api.example.com/v1':'http://127.0.0.1:1234/v1';
 }
 function updateQuarantineField(){fieldVisible('quarantine_folder',$('settings').elements.allow_quarantine.checked);}
 $('settings').elements.allow_quarantine.onchange=updateQuarantineField;
+$('settings').elements.typesafe_model.oninput=()=>{updateProviderFields();if(typeof syncConnectionHints==='function')syncConnectionHints();};
 updateProviderFields();updateQuarantineField();

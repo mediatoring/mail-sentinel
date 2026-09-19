@@ -20,7 +20,7 @@ def main():
     config = load_config(args.config)
     if not config.model:
         parser.error('Configure a real model first')
-    if config.external and not (config.allow_external and args.allow_external):
+    if (config.external or config.external_decisions) and not (config.allow_external and args.allow_external):
         parser.error('External evaluation needs saved consent and --allow-external')
     config = dataclasses.replace(config, privacy_mode='redacted_text', plugins=[], data_sources_file='',
                                  organization_rules='', enabled_skills=[], enable_specialists=False, check_modes={})

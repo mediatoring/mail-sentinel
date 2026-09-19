@@ -104,6 +104,8 @@ class Registry:
             loaded.register(self)
             path=getattr(loaded,'__file__',None)
             self.provenance.append({'module':module,'entry_sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest() if path else None})
+        from .typesafe import register as register_decision_model
+        register_decision_model(self)
         from .data_sources import register_sources
         register_sources(self)
         from .memory import register_memory

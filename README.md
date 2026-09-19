@@ -16,6 +16,10 @@ On macOS, subsequent openings can use **Open Mail Sentinel.command**; it uses an
 
 [Installation and troubleshooting](docs/INSTALL.md) · [User guide](docs/USER-GUIDE.md) · [Security boundaries](SECURITY.md)
 
+### Optional decision model (TypeSafe Jev)
+
+[TypeSafe AI](https://typesafe.ai/) Jev is a System One decision model: it answers fixed typed questions with calibrated probabilities instead of generating text. Mail Sentinel can ask it about the pseudonymized message (fraud likelihood, requested action, pressure, impersonation, AI-directed instructions and whether conditional checks apply) and records the answers as evidence with its own ID. The investigating model still selects tools and writes the report; Jev never replaces it. Configure `typesafe_model = "jev-latest"`, set `TYPESAFE_API_KEY`, enable `allow_external` and keep `privacy_mode = "redacted_text"`. See the [user guide](docs/USER-GUIDE.md#decision-model-typesafe-jev).
+
 ## Development and evaluation
 
 ```sh

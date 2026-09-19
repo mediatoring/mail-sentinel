@@ -19,7 +19,16 @@ from .config import encode_toml
 from .tools import Registry, demo_messages, organization, redaction_terms
 
 
-EDITABLE_SETTINGS = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file", "timeout", "imap_port", "automatic_checks", "reviewed_cases_file"]
+EDITABLE_SETTINGS = ["provider", "model", "base_url", "language", "privacy_mode", "allow_external", "imap_host", "imap_user", "imap_folder", "organization_file", "allow_quarantine", "quarantine_folder", "check_modes", "queue_workers", "queue_per_hour", "queue_attempts", "queue_since", "daily_model_calls", "max_steps", "max_seconds", "max_output_tokens", "max_input_bytes", "context_tokens", "retention_days", "imap_auth", "enabled_skills", "enable_specialists", "plugins", "organization_rules", "data_sources_file", "timeout", "imap_port", "automatic_checks", "reviewed_cases_file", "typesafe_model", "typesafe_base_url"]
+
+
+def external_ready(config):
+    """Every external destination needs the administrator opt-in and its own credential."""
+    if config.external and (not config.allow_external or not config.api_key):
+        return False
+    if config.external_decisions and (not config.allow_external or not config.typesafe_api_key):
+        return False
+    return True
 
 
 def connection_signature(config):
@@ -104,7 +113,7 @@ class Application:
     def start(self, mid, consent):
         if not self.config.model:
             raise ValueError("Configure a real AI model first")
-        if self.config.external and (not consent or not self.config.allow_external or not self.config.api_key):
+        if (self.config.external or self.config.external_decisions) and (not consent or not external_ready(self.config)):
             raise ValueError("External AI requires explicit consent, configuration opt-in and an API key")
         with self.lock:
             if self.busy:
@@ -215,8 +224,9 @@ def _serve(config, port, config_path):
                 from .presets import list_presets
                 return self.send({"presets":list_presets(config_path)})
             if path == "/api/state":
-                return self.send({"provider": config.provider, "model": config.model, "configured": bool(config.model and (not config.external or config.api_key)), "external": config.external,
+                return self.send({"provider": config.provider, "model": config.model, "configured": bool(config.model and external_ready(config)), "external": config.external or config.external_decisions,
                                   "connection_ok": app.connection_ok, "key_configured":bool(config.api_key),
+                                  "decision_model": config.typesafe_model, "decision_key_configured": bool(config.typesafe_api_key),
                                   "active_job":next(({"job_id":k,"message_id":v["message_id"]} for k,v in list(app.jobs.items()) if v["status"]=="running"),None), "allow_external": config.allow_external, "privacy_mode": config.privacy_mode, "language": config.language,
                                   "quarantine_enabled": config.allow_quarantine,
                                   "messages": [{k: m[k] for k in ("id", "subject", "sender", "source")} for m in app.messages.values()]})
@@ -330,7 +340,7 @@ def _serve(config, port, config_path):
                 if path == "/api/queue/resume":
                     if not config.model:
                         raise ValueError("Configure a real AI model first")
-                    if config.external and (not config.allow_external or not config.api_key or data.get("consent") is not True):
+                    if (config.external or config.external_decisions) and (not external_ready(config) or data.get("consent") is not True):
                         raise ValueError("Authorize external processing for the queue")
                     if not config.imap_host or not config.imap_user or not os.environ.get(config.imap_token_env if config.imap_auth=='oauth2' else config.imap_password_env):
                         raise ValueError("Configure mailbox connection and credentials first")
@@ -365,7 +375,7 @@ def _serve(config, port, config_path):
                             data = load_preset(config_path, preset_id, config, EDITABLE_SETTINGS)
                         values = dataclasses.asdict(config)
                         fields = set(EDITABLE_SETTINGS)
-                        if set(data) - fields - {"api_key", "imap_password", "data_sources"}:
+                        if set(data) - fields - {"api_key", "imap_password", "typesafe_api_key", "data_sources"}:
                             raise ValueError("Unknown setting")
                         for k in fields & set(data):
                             if type(data[k]) is not type(values[k]) or (isinstance(data[k], str) and len(data[k]) > (16000 if k=="organization_rules" else 4000)):
@@ -391,7 +401,7 @@ def _serve(config, port, config_path):
                             values['data_sources_file']=str(destination)
                         from .config import Config
                         updated = Config(**values).validate()
-                        if updated.plugins != config.plugins:
+                        if updated.plugins != config.plugins or updated.external_decisions != config.external_decisions:
                             probe=Registry({'source':'file','sender':'','body':'','subject':'','attachments':[],'urls':[]},organization(updated),Privacy(),dataclasses.replace(updated,check_modes={}))
                             removed=set(config.check_modes)-set(probe.catalog)
                             updated.check_modes={k:v for k,v in updated.check_modes.items() if k not in removed}
@@ -404,9 +414,10 @@ def _serve(config, port, config_path):
                         mailbox_changed=(config.imap_host,config.imap_user,config.imap_port)!=(updated.imap_host,updated.imap_user,updated.imap_port)
                         if (mailbox_changed or config.imap_folder!=updated.imap_folder or config.queue_since!=updated.queue_since) and app.store.overview()['counts'].get('pending',0):
                             raise ValueError("Finish or cancel waiting queue items before changing mailbox scope")
-                        for key in ("api_key", "imap_password"):
+                        for key in ("api_key", "imap_password", "typesafe_api_key"):
                             if key in data and (not isinstance(data[key], str) or len(data[key]) > 4000):
                                 raise ValueError("Invalid credential")
+                        decision_scope_changed = config.typesafe_endpoint != updated.typesafe_endpoint
                         if updated.allow_quarantine:
                             password=data.get('imap_password') or (os.environ.get(updated.imap_password_env) if not mailbox_changed else '')
                             with Mailbox(updated).connect(password=password) as client:
@@ -422,9 +433,11 @@ def _serve(config, port, config_path):
                             os.environ.pop(config.api_key_env,None)
                         if mailbox_changed:
                             os.environ.pop(config.imap_password_env,None)
+                        if decision_scope_changed:
+                            os.environ.pop(config.typesafe_api_key_env,None)
                         for k in fields:
                             setattr(config, k, getattr(updated, k))
-                        for k, env in [("api_key", config.api_key_env), ("imap_password", config.imap_password_env)]:
+                        for k, env in [("api_key", config.api_key_env), ("imap_password", config.imap_password_env), ("typesafe_api_key", config.typesafe_api_key_env)]:
                             if data.get(k):
                                 if not isinstance(data[k], str) or len(data[k]) > 4000:
                                     raise ValueError("Invalid credential")
@@ -483,6 +496,24 @@ def _serve(config, port, config_path):
                     Mailbox(config).quarantine(proposal["ref"])
                     app.store.save(proposal["message_id"], {"status": "action", "action": "quarantine", "report_id": data["report_id"], "approved_by": "local authenticated operator"})
                     return self.send({"status": "moved"})
+                if path == "/api/decision-model":
+                    # Real typed request without message data. Verifies the TypeSafe credential and model name.
+                    permitted = {"typesafe_model", "typesafe_base_url", "typesafe_api_key", "allow_external"}
+                    if set(data) - permitted:
+                        raise ValueError("Unknown decision model setting")
+                    values = {k: v for k, v in data.items() if k != "typesafe_api_key"}
+                    for key, value in values.items():
+                        if type(value) is not type(getattr(config, key)):
+                            raise ValueError("Invalid decision model setting")
+                    draft = dataclasses.replace(config, **values).validate()
+                    if not draft.typesafe_model:
+                        raise ValueError("Enter a decision model identifier first")
+                    key = data.get("typesafe_api_key") or (config.typesafe_api_key if draft.typesafe_endpoint == config.typesafe_endpoint else "")
+                    if not isinstance(key, str) or len(key) > 4000:
+                        raise ValueError("Invalid credential")
+                    from .typesafe import DecisionModel
+                    result = DecisionModel(draft, api_key=key).verify()
+                    return self.send({"status": "connected", "model": result["model"] or draft.typesafe_model})
                 if path == "/api/connection":
                     # Real inference, no message data. Verifies native tool use.
                     d = [{"name": "connection_ok", "description": "Confirm this connection", "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False}}]

@@ -11,6 +11,10 @@ The harness is the host code around the model: message scope, transcript, availa
 5. The model chooses the next operation. A completion must cite observed successful evidence. Exhausted budgets or provider failures produce an incomplete result.
 6. Quarantine approval happens outside this loop through the existing application approval path.
 
+## Typed decision evidence
+
+`typesafe.py` registers `evaluate_decision_model` when `typesafe_model` is configured. It is a check tool, not a provider: the TypeSafe System One API answers host-owned typed questions (noul, choice, score) over the pseudonymized message and returns calibrated probabilities. The request uses the same bounded transport as model providers (timeout, response-size limit, no redirects, no ambient proxies) with its own credential. Responses are validated against the questions asked; unknown labels, out-of-range probabilities, missing answers and extra answers fail closed or are dropped. Transport failures become an unavailable observation, never an exception that aborts the investigation. The tool is not part of the baseline preflight and is never replayed from a checkpoint, because its answers are external inferences.
+
 ## Replace the provider in Python
 
 `Agent(registry, provider=adapter)` accepts an object exposing `decide(system, context, definitions)`. This is dependency injection for embedded integrations and tests. Normal CLI/UI execution constructs `Provider` from configuration; a new selectable transport also needs configuration validation and UI changes.
