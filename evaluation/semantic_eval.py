@@ -31,7 +31,7 @@ def main():
     parser.add_argument('--case', action='append', choices=[c[0] for c in CASES], help='Run selected cases; repeat to select more than one')
     args=parser.parse_args();config=load_config(args.config)
     if not config.model:parser.error('Configure a real model first')
-    if config.external and not (config.allow_external and args.allow_external):parser.error('External evaluation needs --allow-external and saved external-processing authorization')
+    if (config.external or config.external_decisions) and not (config.allow_external and args.allow_external):parser.error('External evaluation needs --allow-external and saved external-processing authorization')
     # Controlled synthetic evidence, no organization databases or private policies.
     cfg=dataclasses.replace(config,privacy_mode='redacted_text',plugins=[],data_sources_file='',organization_rules='',enabled_skills=[],enable_specialists=False,check_modes={})
     outcomes=[]

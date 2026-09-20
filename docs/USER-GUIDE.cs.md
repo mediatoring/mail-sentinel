@@ -24,7 +24,21 @@ Začněte v [návodu pro vývojáře](DEVELOPMENT.md) a [AGENTS.md](../AGENTS.md
 
 Autor: [Michal Kubíček](https://kubicek.ai/). Support by [Mediatoring.com](https://mediatoring.cz/kyberbezpecnost/).
 
-Nastavení se přizpůsobuje poskytovateli: lokální AI zobrazuje adresu serveru; OpenAI, Anthropic a Gemini pole pro API klíč; kompatibilní HTTPS API obě pole. Souhlas s externím zpracováním se zobrazuje pouze u cloudových poskytovatelů.
+Nastavení se přizpůsobuje poskytovateli: lokální AI zobrazuje adresu serveru; OpenAI, Anthropic a Gemini pole pro API klíč; kompatibilní HTTPS API obě pole. Souhlas s externím zpracováním se zobrazuje u cloudových poskytovatelů a vždy, když je nastaven rozhodovací model.
+
+## Rozhodovací model (TypeSafe Jev)
+
+Jev od [TypeSafe AI](https://typesafe.ai/) ([dokumentace](https://docs.typesafe.ai/introduction)) je rozhodovací model typu System One. Dostane stav a pevně dané typované otázky a vrátí typované odpovědi s kalibrovanými pravděpodobnostmi: pravděpodobnost ano/ne (`noul`), volbu s rozdělením přes zadané možnosti nebo skóre na seřazené stupnici. Mimo zadané možnosti odpovědět nemůže, negeneruje text a nevybírá nástroje, takže vyšetřující model nenahrazuje. Mail Sentinel ho registruje jako důkazní nástroj `evaluate_decision_model`:
+
+```toml
+typesafe_model = "jev-latest"        # prázdné = nástroj vypnutý
+allow_external = true                # pseudonymizovaná zpráva opouští tento počítač
+privacy_mode = "redacted_text"       # evidence_only nic neodešle a kontrolu označí jako nedostupnou
+# typesafe_base_url = "https://api.typesafe.ai"   # pouze HTTPS
+# typesafe_api_key_env = "TYPESAFE_API_KEY"
+```
+
+Klíč `TYPESAFE_API_KEY` nastavte v prostředí nebo zadejte v Nastavení → Rozhodovací model; klíč zadaný v rozhraní zůstává jen v paměti procesu. `python -m sentinel doctor` odešle i jednu typovanou testovací otázku bez dat zprávy. Nástroj klade otázky vlastněné aplikací: pravděpodobnost podvodu, požadovaná akce, nátlak, vydávání se za jiného, instrukce pro AI a ke každé podmíněné kontrole jednu otázku na aplikovatelnost sestavenou z jejího popisu. Obsah e-mailu otázky nikdy nemění. Odesílá se stejná pseudonymizovaná zpráva, kterou vidí vyšetřující model, s omezenou velikostí; odpovědi se zaznamenají jako důkaz s ID a pravděpodobnost podvodu 0,9 a vyšší je blokátor, který brání verdiktu nízkého rizika. Režim jen důkazů, chybějící klíč nebo odmítnutý požadavek zaznamenají nedostupnou kontrolu, nikdy vymyšlenou odpověď. Volání účtuje TypeSafe podle vstupních tokenů a nezapočítávají se do `daily_model_calls`. Režim kontroly Povinná zajistí, že se model použije v každé analýze; analýza pak potřebuje o jeden krok modelu víc a i s lokálním poskytovatelem vyžaduje `allow_external` a souhlas u každé analýzy.
 
 ## Pravidla, fronta a rozšíření
 

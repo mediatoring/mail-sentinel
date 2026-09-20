@@ -16,6 +16,10 @@ Na macOS lze při dalších spuštěních použít **Open Mail Sentinel.command*
 
 [Instalace a řešení problémů](docs/INSTALL.cs.md) · [Uživatelský průvodce](docs/USER-GUIDE.cs.md) · [Bezpečnostní omezení](SECURITY.md)
 
+### Volitelný rozhodovací model (TypeSafe Jev)
+
+Jev od [TypeSafe AI](https://typesafe.ai/) je rozhodovací model typu System One: na pevně dané typované otázky odpovídá kalibrovanými pravděpodobnostmi, žádný text negeneruje. Mail Sentinel se ho může zeptat na pseudonymizovanou zprávu (pravděpodobnost podvodu, požadovaná akce, nátlak, vydávání se za jiného, instrukce pro AI a aplikovatelnost podmíněných kontrol) a odpovědi zaznamená jako důkaz s vlastním ID. Nástroje dál vybírá a report píše vyšetřující model; Jev ho nenahrazuje. Nastavte `typesafe_model = "jev-latest"`, proměnnou `TYPESAFE_API_KEY`, povolte `allow_external` a ponechte `privacy_mode = "redacted_text"`. Podrobnosti v [uživatelském průvodci](docs/USER-GUIDE.cs.md#rozhodovací-model-typesafe-jev).
+
 ## Vývoj a ověření
 
 ```sh

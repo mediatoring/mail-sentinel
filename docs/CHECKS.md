@@ -11,6 +11,8 @@ The model interprets message meaning, requested actions and manipulation attempt
 
 The model can call `assess_applicability` to classify every conditional check as applicable, not applicable or uncertain, with a reason. It can also perform a check directly. An assessment is recorded as a model judgment, not independent evidence. A false-negative judgment remains possible; use Required for checks that must apply to every message.
 
+The optional `evaluate_decision_model` check asks the configured [TypeSafe Jev decision model](USER-GUIDE.md#decision-model-typesafe-jev) for calibrated probabilities, including one applicability probability per conditional check. Those probabilities are evidence for the model's `assess_applicability` judgment; they do not waive a check by themselves, and a likely-fraud probability is a host blocker.
+
 Message inspection is mandatory. Built-in checks and installed plugins supply their own default modes, availability checks and reasons that prevent a low-risk verdict. The same catalog drives model definitions, administrator controls, previews and report completion. Custom plugin names do not require edits to the UI or the rule engine.
 
 New configurations use pseudonymized message text so the model can assess meaning. Existing privacy settings remain in effect. Evidence-only mode withholds text and cannot waive semantic checks; truncated text also prevents a waiver. Choose local inference when the permitted disclosure does not allow sending pseudonymized text externally.

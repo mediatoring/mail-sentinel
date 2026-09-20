@@ -94,7 +94,7 @@ def main():
     c = load_config(args.config)
     if not c.model or (c.external and not c.api_key):
         raise SystemExit('No real model configured. Configure a local server or export the configured API-key variable.')
-    if c.external and (not c.allow_external or not args.allow_external):
+    if (c.external or c.external_decisions) and (not c.allow_external or not args.allow_external):
         raise SystemExit('External evaluation requires allow_external in config and --allow-external.')
     # Evaluate built-in behavior on synthetic data; never load organization files or third-party plugins.
     c = dataclasses.replace(c, plugins=[], organization_file='', imap_host='', imap_user='', data_sources_file='', organization_rules='', reviewed_cases_file='', enabled_skills=[], check_modes={})

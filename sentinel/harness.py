@@ -5,9 +5,9 @@ from .rules import check_status
 BASELINE = ('inspect_message', 'inspect_prompt_injection', 'verify_sender', 'inspect_links', 'inspect_attachments')
 SPECIALISTS = {
     'payments': ('inspect_message', 'verify_payment', 'verify_sender'),
-    'manipulation': ('inspect_message', 'inspect_prompt_injection', 'inspect_links', 'inspect_attachments'),
+    'manipulation': ('inspect_message', 'inspect_prompt_injection', 'inspect_links', 'inspect_attachments', 'evaluate_decision_model'),
     'policy': ('inspect_message', 'search_policy'),
-    'critic': ('inspect_message', 'inspect_prompt_injection'),
+    'critic': ('inspect_message', 'inspect_prompt_injection', 'evaluate_decision_model'),
 }
 
 

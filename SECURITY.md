@@ -14,6 +14,7 @@ This initial release is a local single-user review assistant for controlled pilo
 - Browser output uses textContent; a restrictive CSP blocks inline scripts and external resources. No message HTML is rendered.
 - Redirects and ambient HTTP proxies are disabled in the model transport. Local endpoints must use a loopback host.
 - Outbound initial content, observations and persisted model reports go through the privacy layer.
+- The optional TypeSafe decision model is a second external destination. It receives only the pseudonymized message and host-owned typed questions, under the same administrator opt-in, per-investigation consent and a separate credential. Its answers are validated against the questions asked and recorded as evidence, never executed as instructions.
 - Non-INCONCLUSIVE completion is rejected while required checks remain obtainable, including unread policy pages. LOW_RISK is additionally downgraded for unavailable or truncated evidence and plugin blockers. Claim references are validated, not their semantic truth. Explicit INCONCLUSIVE handoff remains possible.
 - Failure has no safe verdict fallback. Model call and output sizes and iteration count are bounded.
 
